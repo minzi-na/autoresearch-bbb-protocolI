@@ -246,8 +246,8 @@ def objective(trial: Trial, hpo_splits, mod_dims):
     lr             = trial.suggest_float('lr', 1e-5, 5e-4, log=True)
     weight_decay   = trial.suggest_float('weight_decay', 5e-6, 5e-4, log=True)
     cond_type      = trial.suggest_categorical('cond_type', ['none', 'film', 'adaLN'])
-    modal_drop_p   = trial.suggest_float('modal_drop_p', 0.0, 0.3)
-    ls_eps         = trial.suggest_float('ls_eps', 0.0, 0.15)
+    modal_drop_p   = trial.suggest_float('modal_drop_p', 0.0, 0.4)
+    ls_eps         = trial.suggest_float('ls_eps', 0.0, 0.25)
 
     seed_scores = []
     for seed, (train_ds, val_ds) in hpo_splits.items():
