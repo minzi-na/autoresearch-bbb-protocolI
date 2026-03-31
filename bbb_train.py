@@ -136,8 +136,12 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.use_gated_pool = use_gated_pool
         self.modal_drop_p = modal_drop_p
 
+        # LayerNorm after projection normalizes diverse modality scales (binary FPs vs embeddings)
         self.proj = nn.ModuleDict({
-            name: nn.Linear(in_dim, d_model)
+            name: nn.Sequential(
+                nn.Linear(in_dim, d_model),
+                nn.LayerNorm(d_model),
+            )
             for name, in_dim in zip(self.mod_names, self.mod_dims)
         })
 
