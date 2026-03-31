@@ -247,6 +247,7 @@ def objective(trial: Trial, hpo_splits, mod_dims):
     weight_decay   = trial.suggest_float('weight_decay', 5e-6, 5e-4, log=True)
     cond_type      = trial.suggest_categorical('cond_type', ['none', 'film', 'adaLN'])
     modal_drop_p   = trial.suggest_float('modal_drop_p', 0.0, 0.3)
+    ls_eps         = trial.suggest_float('ls_eps', 0.0, 0.15)
 
     seed_scores = []
     for seed, (train_ds, val_ds) in hpo_splits.items():
@@ -267,8 +268,13 @@ def objective(trial: Trial, hpo_splits, mod_dims):
             pos_weight = torch.tensor([max(n_neg / n_pos, 1.0)], dtype=torch.float32, device=device)
 
         optimizer_obj = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-        loss_fn = (nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-                   if pos_weight is not None else nn.BCEWithLogitsLoss())
+        base_loss = (nn.BCEWithLogitsLoss(pos_weight=pos_weight, reduction='none')
+                     if pos_weight is not None else nn.BCEWithLogitsLoss(reduction='none'))
+
+        def loss_fn(logits, targets):
+            # Label smoothing for better calibration and generalization
+            smooth = targets * (1.0 - ls_eps) + 0.5 * ls_eps
+            return base_loss(logits, smooth).mean()
 
         model = train_model(model, optimizer_obj, train_loader, val_loader, loss_fn)
 
