@@ -102,6 +102,8 @@ class gMLPBlock(nn.Module):
         self.channel_proj1 = nn.Linear(d_model, d_ffn * 2)
         self.channel_proj2 = nn.Linear(d_ffn, d_model)
         self.sgu = SpatialGatingUnit(d_ffn, seq_len)
+        # Learnable residual scale: init=1 (same as plain residual at start)
+        self.res_scale = nn.Parameter(torch.ones(1))
 
     def forward(self, x):
         residual = x
@@ -109,7 +111,7 @@ class gMLPBlock(nn.Module):
         x = F.gelu(self.channel_proj1(x))
         x = self.sgu(x)
         x = self.channel_proj2(x)
-        return x + residual
+        return residual + self.res_scale * x
 
 
 class gMLP(nn.Module):
