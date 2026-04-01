@@ -199,7 +199,9 @@ class MultiModalGMLPFromFlat(nn.Module):
 
 def train_model(model, optimizer, train_loader, val_loader, loss_fn,
                 num_epochs=NUM_EPOCHS, patience=PATIENCE):
-    best_val   = float('inf')
+    # Early-stop on composite score (f1+mcc+roc_auc) instead of val loss.
+    # Loss uses smoothed labels, so loss-optimal != metric-optimal.
+    best_score = -float('inf')
     best_state = None
     bad        = 0
 
@@ -212,16 +214,10 @@ def train_model(model, optimizer, train_loader, val_loader, loss_fn,
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
-        model.eval()
-        val_loss = 0.0
-        with torch.no_grad():
-            for x, y in val_loader:
-                x, y = x.to(device), y.to(device)
-                val_loss += loss_fn(model(x), y).item()
-        val_loss /= len(val_loader)
+        val_score = composite_score(eval_model(model, val_loader))
 
-        if val_loss < best_val:
-            best_val   = val_loss
+        if val_score > best_score:
+            best_score = val_score
             best_state = deepcopy(model.state_dict())
             bad        = 0
         else:
