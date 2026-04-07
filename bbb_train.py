@@ -84,11 +84,15 @@ class SpatialGatingUnit(nn.Module):
         self.norm         = nn.LayerNorm(d_ffn)
         self.spatial_proj = nn.Conv1d(seq_len, seq_len, kernel_size=1)
         nn.init.constant_(self.spatial_proj.bias, 1.0)
+        # Learnable residual scale for cross-modal mixing strength
+        # init=0 → exp(0)*0=0 at start, gradually learns mixing weight
+        self.gate_scale   = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         u, v = x.chunk(2, dim=-1)
         v = self.norm(v)
-        v = self.spatial_proj(v)
+        # v_mixed = identity term + scaled cross-modal mixing
+        v = v + self.gate_scale.exp() * (self.spatial_proj(v) - v)
         return u * v
 
 
