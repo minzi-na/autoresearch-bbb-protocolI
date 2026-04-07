@@ -79,20 +79,33 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    def __init__(self, d_ffn, seq_len):
+    def __init__(self, d_ffn, seq_len, n_heads=4):
         super().__init__()
-        self.norm         = nn.LayerNorm(d_ffn)
-        self.spatial_proj = nn.Conv1d(seq_len, seq_len, kernel_size=1)
-        nn.init.constant_(self.spatial_proj.bias, 1.0)
-        # Learnable residual scale for cross-modal mixing strength
-        # init=0 → exp(0)*0=0 at start, gradually learns mixing weight
-        self.gate_scale   = nn.Parameter(torch.zeros(1))
+        assert d_ffn % n_heads == 0, "d_ffn must be divisible by n_heads"
+        self.n_heads  = n_heads
+        self.head_dim = d_ffn // n_heads
+        self.norm     = nn.LayerNorm(d_ffn)
+        # Multi-head: each head learns an independent seq_len × seq_len mixing matrix
+        self.spatial_projs = nn.ModuleList([
+            nn.Conv1d(seq_len, seq_len, kernel_size=1)
+            for _ in range(n_heads)
+        ])
+        for proj in self.spatial_projs:
+            nn.init.constant_(proj.bias, 1.0)
+        # Learnable residual scale per head
+        self.gate_scale = nn.Parameter(torch.zeros(n_heads))
 
     def forward(self, x):
-        u, v = x.chunk(2, dim=-1)
+        u, v = x.chunk(2, dim=-1)           # each: (B, seq_len, d_ffn)
         v = self.norm(v)
-        # v_mixed = identity term + scaled cross-modal mixing
-        v = v + self.gate_scale.exp() * (self.spatial_proj(v) - v)
+        B, S, D = v.shape
+        # Split v into n_heads chunks along feature dim
+        v_heads = v.chunk(self.n_heads, dim=-1)   # each (B, S, head_dim)
+        out_heads = []
+        for i, (v_h, proj) in enumerate(zip(v_heads, self.spatial_projs)):
+            scale = self.gate_scale[i].exp()
+            out_heads.append(v_h + scale * (proj(v_h) - v_h))
+        v = torch.cat(out_heads, dim=-1)           # (B, S, d_ffn)
         return u * v
 
 
