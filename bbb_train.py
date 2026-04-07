@@ -93,27 +93,37 @@ class SpatialGatingUnit(nn.Module):
 
 
 class gMLPBlock(nn.Module):
-    def __init__(self, d_model, d_ffn, seq_len):
+    def __init__(self, d_model, d_ffn, seq_len, drop_path_prob=0.0):
         super().__init__()
         self.norm          = nn.LayerNorm(d_model)
         self.channel_proj1 = nn.Linear(d_model, d_ffn * 2)
         self.channel_proj2 = nn.Linear(d_ffn, d_model)
         self.sgu           = SpatialGatingUnit(d_ffn, seq_len)
+        self.drop_path_prob = drop_path_prob
 
     def forward(self, x):
         residual = x
-        x = self.norm(x)
-        x = F.gelu(self.channel_proj1(x))
-        x = self.sgu(x)
-        x = self.channel_proj2(x)
-        return x + residual
+        out = self.norm(x)
+        out = F.gelu(self.channel_proj1(out))
+        out = self.sgu(out)
+        out = self.channel_proj2(out)
+        # Stochastic depth: skip entire block with probability during training
+        if self.training and self.drop_path_prob > 0:
+            keep_prob = 1.0 - self.drop_path_prob
+            shape = (x.shape[0],) + (1,) * (x.ndim - 1)
+            mask = torch.bernoulli(torch.full(shape, keep_prob, device=x.device)) / keep_prob
+            out = out * mask
+        return out + residual
 
 
 class gMLP(nn.Module):
-    def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4):
+    def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4, drop_path_rate=0.1):
         super().__init__()
+        # Linearly increasing drop path: 0 → drop_path_rate across layers
+        dpr = [drop_path_rate * i / max(1, num_layers - 1) for i in range(num_layers)]
         self.model = nn.Sequential(
-            *[gMLPBlock(d_model, d_ffn, seq_len) for _ in range(num_layers)]
+            *[gMLPBlock(d_model, d_ffn, seq_len, drop_path_prob=dpr[i])
+              for i in range(num_layers)]
         )
 
     def forward(self, x):
