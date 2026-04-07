@@ -49,15 +49,11 @@ _HOLDOUT_DIR = '/home/minji/BBB/holdout_splits/internal_curated_holdout_10pct_se
 LABEL_PATH  = f'{_HOLDOUT_DIR}/internal_curated_label_remaining.csv'
 EMBED_PATHS = {
     'scage1': f'{_HOLDOUT_DIR}/internal_curated_scage1_remaining.csv',
-    'scage2': f'{_HOLDOUT_DIR}/internal_curated_scage2_remaining.csv',
     'mole':   f'{_HOLDOUT_DIR}/internal_curated_mole_remaining.csv',
 }
 
-# Set FP_TYPES to the combo for this worktree before starting the loop.
-# combo1: ['maccs', 'avalon', 'rdkit', 'mole']
-# combo2: ['ecfp', 'maccs', 'avalon', 'tt', 'rdkit', 'scage1', 'mole']
-# combo3: ['ecfp', 'maccs', 'avalon', 'tt', 'rdkit', 'mole']
-FP_TYPES    = ['maccs', 'avalon', 'rdkit', 'mole']
+# combo2: ecfp+maccs+avalon+tt+rdkit+scage1+mole
+FP_TYPES    = ['ecfp', 'maccs', 'avalon', 'tt', 'rdkit', 'scage1', 'mole']
 
 SPLIT_MODES = ['scaffold']
 
