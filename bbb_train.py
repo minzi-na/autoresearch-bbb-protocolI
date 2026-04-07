@@ -79,17 +79,32 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
+    """Attention-based SGU: replaces Conv1d mixer with single-head self-attention.
+    With seq_len=4, this is efficient and content-dependent.
+    """
     def __init__(self, d_ffn, seq_len):
         super().__init__()
-        self.norm         = nn.LayerNorm(d_ffn)
-        self.spatial_proj = nn.Conv1d(seq_len, seq_len, kernel_size=1)
-        nn.init.constant_(self.spatial_proj.bias, 1.0)
+        self.norm  = nn.LayerNorm(d_ffn)
+        self.d_ffn = d_ffn
+        # Self-attention Q, K, V projections for the v gate
+        self.q_proj = nn.Linear(d_ffn, d_ffn)
+        self.k_proj = nn.Linear(d_ffn, d_ffn)
+        self.v_proj = nn.Linear(d_ffn, d_ffn)
+        # Init near-identity for stable start
+        nn.init.eye_(self.v_proj.weight)
+        nn.init.zeros_(self.v_proj.bias)
 
     def forward(self, x):
-        u, v = x.chunk(2, dim=-1)
+        u, v = x.chunk(2, dim=-1)        # (B, seq_len, d_ffn) each
         v = self.norm(v)
-        v = self.spatial_proj(v)
-        return u * v
+        # Self-attention gating
+        Q = self.q_proj(v)               # (B, seq_len, d_ffn)
+        K = self.k_proj(v)               # (B, seq_len, d_ffn)
+        V = self.v_proj(v)               # (B, seq_len, d_ffn)
+        scale = self.d_ffn ** 0.5
+        attn = torch.softmax(Q @ K.transpose(-1, -2) / scale, dim=-1)  # (B, seq_len, seq_len)
+        v_out = attn @ V                 # (B, seq_len, d_ffn)
+        return u * v_out
 
 
 class gMLPBlock(nn.Module):
