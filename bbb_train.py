@@ -79,18 +79,21 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    """Attention-based SGU with pre-norm on both u and v branches.
+    """Attention-based SGU with pre-norm on both u and v + learned temperature.
 
-    Current best (e38c2fd) normalizes only v before attention.
-    Adding a separate LayerNorm to u before gating stabilizes the scale
-    of the elementwise multiplication (u * v_out), which may help
-    with the small BBB dataset where variance can be high.
+    Builds on 955e253 (0.8560): pre-norm for both u and v branches.
+    Adds a learnable log-temperature parameter to control attention sharpness.
+    Initialized at log(1/sqrt(d_ffn)) so the initial scale is standard.
+    This lets the model adapt how sharply it attends across modalities.
     """
     def __init__(self, d_ffn, seq_len):
         super().__init__()
         self.norm_v = nn.LayerNorm(d_ffn)   # normalize v (gate computation)
         self.norm_u = nn.LayerNorm(d_ffn)   # normalize u (input signal)
         self.d_ffn  = d_ffn
+        # Learnable log-temperature: init so scale ≈ 1/sqrt(d_ffn) at start
+        import math
+        self.log_temp = nn.Parameter(torch.tensor(-0.5 * math.log(d_ffn)))
         # Self-attention Q, K, V projections for the v gate
         self.q_proj = nn.Linear(d_ffn, d_ffn)
         self.k_proj = nn.Linear(d_ffn, d_ffn)
@@ -103,12 +106,12 @@ class SpatialGatingUnit(nn.Module):
         u, v = x.chunk(2, dim=-1)        # (B, seq_len, d_ffn) each
         u = self.norm_u(u)               # normalize u before gating
         v = self.norm_v(v)               # normalize v before attention
-        # Self-attention gating
+        # Self-attention gating with learned temperature
         Q = self.q_proj(v)               # (B, seq_len, d_ffn)
         K = self.k_proj(v)               # (B, seq_len, d_ffn)
         V = self.v_proj(v)               # (B, seq_len, d_ffn)
-        scale = self.d_ffn ** 0.5
-        attn = torch.softmax(Q @ K.transpose(-1, -2) / scale, dim=-1)  # (B, seq_len, seq_len)
+        scale = self.log_temp.exp()      # learned scalar temperature
+        attn = torch.softmax(Q @ K.transpose(-1, -2) * scale, dim=-1)  # (B, seq_len, seq_len)
         v_out = attn @ V                 # (B, seq_len, d_ffn)
         return u * v_out
 
