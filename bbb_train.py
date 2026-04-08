@@ -107,7 +107,7 @@ class gMLPBlock(nn.Module):
     def forward(self, x):
         residual = x
         out = self.norm(x)
-        out = F.gelu(self.channel_proj1(out))
+        out = F.silu(self.channel_proj1(out))  # SiLU in channel proj (consistent with SGU)
         out = self.sgu(out)
         out = self.channel_proj2(out)
         # Stochastic depth: skip entire block with probability during training
