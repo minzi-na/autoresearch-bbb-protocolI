@@ -78,11 +78,23 @@ HOLDOUT_EMBED_PATHS = {
 # Model Architecture  (agent modifies this section)
 # ---------------------------------------------------------------------------
 
+class RMSNorm(nn.Module):
+    """Root Mean Square Layer Normalization (no mean centering)."""
+    def __init__(self, d, eps=1e-8):
+        super().__init__()
+        self.scale = nn.Parameter(torch.ones(d))
+        self.eps   = eps
+
+    def forward(self, x):
+        rms = x.pow(2).mean(dim=-1, keepdim=True).add(self.eps).sqrt()
+        return (x / rms) * self.scale
+
+
 class SpatialGatingUnit(nn.Module):
     """SGU with SiLU on both u and v: nonlinear gate on both paths."""
     def __init__(self, d_ffn, seq_len):
         super().__init__()
-        self.norm         = nn.LayerNorm(d_ffn)
+        self.norm         = RMSNorm(d_ffn)
         self.spatial_proj = nn.Conv1d(seq_len, seq_len, kernel_size=1)
         nn.init.constant_(self.spatial_proj.bias, 1.0)
 
@@ -98,7 +110,7 @@ class SpatialGatingUnit(nn.Module):
 class gMLPBlock(nn.Module):
     def __init__(self, d_model, d_ffn, seq_len, drop_path_prob=0.0):
         super().__init__()
-        self.norm          = nn.LayerNorm(d_model)
+        self.norm          = RMSNorm(d_model)
         self.channel_proj1 = nn.Linear(d_model, d_ffn * 2)
         self.channel_proj2 = nn.Linear(d_ffn, d_model)
         self.sgu           = SpatialGatingUnit(d_ffn, seq_len)
