@@ -79,25 +79,25 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    """Attention-based SGU with pre-norm on both u and v + learned temperature.
+    """Attention-based SGU with pre-norm on both u and v + learned temperature + attn dropout.
 
-    Builds on 955e253 (0.8560): pre-norm for both u and v branches.
-    Adds a learnable log-temperature parameter to control attention sharpness.
-    Initialized at log(1/sqrt(d_ffn)) so the initial scale is standard.
-    This lets the model adapt how sharply it attends across modalities.
+    Builds on ae66a27 (0.8563): pre-norm u+v + stoch_depth 0.05 + learned_temp + pos_weight.
+    Adds attention dropout (p=0.1) to the attention weights for additional regularization.
+    With seq_len=4, dropout on a 4x4 attention matrix adds noise to cross-modal mixing.
     """
-    def __init__(self, d_ffn, seq_len):
+    def __init__(self, d_ffn, seq_len, attn_drop=0.1):
         super().__init__()
-        self.norm_v = nn.LayerNorm(d_ffn)   # normalize v (gate computation)
-        self.norm_u = nn.LayerNorm(d_ffn)   # normalize u (input signal)
-        self.d_ffn  = d_ffn
+        self.norm_v    = nn.LayerNorm(d_ffn)   # normalize v (gate computation)
+        self.norm_u    = nn.LayerNorm(d_ffn)   # normalize u (input signal)
+        self.d_ffn     = d_ffn
         # Learnable log-temperature: init so scale ≈ 1/sqrt(d_ffn) at start
         import math
-        self.log_temp = nn.Parameter(torch.tensor(-0.5 * math.log(d_ffn)))
+        self.log_temp  = nn.Parameter(torch.tensor(-0.5 * math.log(d_ffn)))
+        self.attn_drop = nn.Dropout(attn_drop)
         # Self-attention Q, K, V projections for the v gate
-        self.q_proj = nn.Linear(d_ffn, d_ffn)
-        self.k_proj = nn.Linear(d_ffn, d_ffn)
-        self.v_proj = nn.Linear(d_ffn, d_ffn)
+        self.q_proj    = nn.Linear(d_ffn, d_ffn)
+        self.k_proj    = nn.Linear(d_ffn, d_ffn)
+        self.v_proj    = nn.Linear(d_ffn, d_ffn)
         # Init near-identity for stable start
         nn.init.eye_(self.v_proj.weight)
         nn.init.zeros_(self.v_proj.bias)
@@ -106,12 +106,13 @@ class SpatialGatingUnit(nn.Module):
         u, v = x.chunk(2, dim=-1)        # (B, seq_len, d_ffn) each
         u = self.norm_u(u)               # normalize u before gating
         v = self.norm_v(v)               # normalize v before attention
-        # Self-attention gating with learned temperature
+        # Self-attention gating with learned temperature + attention dropout
         Q = self.q_proj(v)               # (B, seq_len, d_ffn)
         K = self.k_proj(v)               # (B, seq_len, d_ffn)
         V = self.v_proj(v)               # (B, seq_len, d_ffn)
         scale = self.log_temp.exp()      # learned scalar temperature
-        attn = torch.softmax(Q @ K.transpose(-1, -2) * scale, dim=-1)  # (B, seq_len, seq_len)
+        attn  = torch.softmax(Q @ K.transpose(-1, -2) * scale, dim=-1)  # (B, seq_len, seq_len)
+        attn  = self.attn_drop(attn)     # dropout on attention weights
         v_out = attn @ V                 # (B, seq_len, d_ffn)
         return u * v_out
 
