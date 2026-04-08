@@ -84,6 +84,7 @@ class SpatialGatingUnit(nn.Module):
     Builds on ae66a27 (0.8563): pre-norm u+v + stoch_depth 0.05 + learned_temp + pos_weight.
     Adds attention dropout (p=0.1) to the attention weights for additional regularization.
     With seq_len=4, dropout on a 4x4 attention matrix adds noise to cross-modal mixing.
+    iter57: mask diagonal in attention (no self-attention; force cross-modal only).
     """
     def __init__(self, d_ffn, seq_len, attn_drop=0.1):
         super().__init__()
@@ -111,7 +112,12 @@ class SpatialGatingUnit(nn.Module):
         K = self.k_proj(v)               # (B, seq_len, d_ffn)
         V = self.v_proj(v)               # (B, seq_len, d_ffn)
         scale = self.log_temp.exp()      # learned scalar temperature
-        attn  = torch.softmax(Q @ K.transpose(-1, -2) * scale, dim=-1)  # (B, seq_len, seq_len)
+        scores = Q @ K.transpose(-1, -2) * scale   # (B, seq_len, seq_len)
+        # Mask diagonal to force cross-modal attention only (no self-attention)
+        seq_len = scores.size(-1)
+        diag_mask = torch.eye(seq_len, device=scores.device, dtype=torch.bool)
+        scores = scores.masked_fill(diag_mask.unsqueeze(0), float('-inf'))
+        attn  = torch.softmax(scores, dim=-1)       # (B, seq_len, seq_len)
         attn  = self.attn_drop(attn)     # dropout on attention weights
         v_out = attn @ V                 # (B, seq_len, d_ffn)
         return u * v_out
