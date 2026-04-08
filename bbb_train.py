@@ -170,7 +170,7 @@ class MultiModalGMLPFromFlat(nn.Module):
     def __init__(self, mod_dims: OrderedDict,
                  d_model=512, d_ffn=1048, depth=4,
                  dropout=0.2, use_gated_pool=True,
-                 stochastic_depth_rate=0.1):
+                 stochastic_depth_rate=0.05):
         super().__init__()
         self.mod_names      = list(mod_dims.keys())
         self.mod_dims       = [mod_dims[n] for n in self.mod_names]
@@ -334,7 +334,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             depth=BASE_CONFIG['depth'],
             dropout=BASE_CONFIG['dropout'],
             use_gated_pool=True,
-            stochastic_depth_rate=0.1,
+            stochastic_depth_rate=0.05,
         ).to(device)
 
         optimizer = optim.Adam(
