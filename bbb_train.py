@@ -108,27 +108,49 @@ class SpatialGatingUnit(nn.Module):
 
 
 class gMLPBlock(nn.Module):
-    def __init__(self, d_model, d_ffn, seq_len):
+    """gMLP block with optional stochastic depth regularization.
+
+    Stochastic depth: during training, the block output is dropped with
+    probability `drop_prob` (residual path always preserved). At inference,
+    the full block runs. Linear schedule: earlier layers have lower drop prob.
+    """
+    def __init__(self, d_model, d_ffn, seq_len, drop_prob=0.0):
         super().__init__()
         self.norm          = nn.LayerNorm(d_model)
         self.channel_proj1 = nn.Linear(d_model, d_ffn * 2)
         self.channel_proj2 = nn.Linear(d_ffn, d_model)
         self.sgu           = SpatialGatingUnit(d_ffn, seq_len)
+        self.drop_prob     = drop_prob
 
     def forward(self, x):
         residual = x
+        if self.training and self.drop_prob > 0.0:
+            # Bernoulli drop: entire block dropped for some samples in batch
+            keep_prob = 1.0 - self.drop_prob
+            shape     = (x.shape[0],) + (1,) * (x.ndim - 1)  # (B, 1, 1)
+            mask      = torch.rand(shape, device=x.device) < keep_prob
+            # Scale surviving blocks to keep expectation correct
+            if not mask.any():
+                return residual
         x = self.norm(x)
         x = F.gelu(self.channel_proj1(x))
         x = self.sgu(x)
         x = self.channel_proj2(x)
+        if self.training and self.drop_prob > 0.0:
+            x = x * mask / keep_prob
         return x + residual
 
 
 class gMLP(nn.Module):
-    def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4):
+    def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4,
+                 stochastic_depth_rate=0.1):
         super().__init__()
+        # Linear schedule: block 0 gets 0, block (num_layers-1) gets max rate
+        drop_probs = [stochastic_depth_rate * i / max(num_layers - 1, 1)
+                      for i in range(num_layers)]
         self.model = nn.Sequential(
-            *[gMLPBlock(d_model, d_ffn, seq_len) for _ in range(num_layers)]
+            *[gMLPBlock(d_model, d_ffn, seq_len, drop_prob=dp)
+              for dp in drop_probs]
         )
 
     def forward(self, x):
@@ -138,7 +160,8 @@ class gMLP(nn.Module):
 class MultiModalGMLPFromFlat(nn.Module):
     def __init__(self, mod_dims: OrderedDict,
                  d_model=512, d_ffn=1048, depth=4,
-                 dropout=0.2, use_gated_pool=True):
+                 dropout=0.2, use_gated_pool=True,
+                 stochastic_depth_rate=0.1):
         super().__init__()
         self.mod_names      = list(mod_dims.keys())
         self.mod_dims       = [mod_dims[n] for n in self.mod_names]
@@ -152,6 +175,7 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.backbone = gMLP(
             d_model=d_model, d_ffn=d_ffn,
             seq_len=self.seq_len, num_layers=depth,
+            stochastic_depth_rate=stochastic_depth_rate,
         )
         self.norm = nn.LayerNorm(d_model)
         if use_gated_pool:
@@ -301,6 +325,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             depth=BASE_CONFIG['depth'],
             dropout=BASE_CONFIG['dropout'],
             use_gated_pool=True,
+            stochastic_depth_rate=0.1,
         ).to(device)
 
         optimizer = optim.Adam(
