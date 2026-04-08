@@ -81,15 +81,17 @@ HOLDOUT_EMBED_PATHS = {
 class SpatialGatingUnit(nn.Module):
     """Attention-based SGU: replaces Conv1d mixer with single-head self-attention.
     Content-dependent mixing — each token attends to all others dynamically.
+    Attention dropout p=0.1 applied to attention weights during training.
     """
     def __init__(self, d_ffn, seq_len):
         super().__init__()
-        self.norm   = nn.LayerNorm(d_ffn)
-        self.d_ffn  = d_ffn
+        self.norm      = nn.LayerNorm(d_ffn)
+        self.d_ffn     = d_ffn
         # Self-attention Q, K, V projections for the v gate
-        self.q_proj = nn.Linear(d_ffn, d_ffn)
-        self.k_proj = nn.Linear(d_ffn, d_ffn)
-        self.v_proj = nn.Linear(d_ffn, d_ffn)
+        self.q_proj    = nn.Linear(d_ffn, d_ffn)
+        self.k_proj    = nn.Linear(d_ffn, d_ffn)
+        self.v_proj    = nn.Linear(d_ffn, d_ffn)
+        self.attn_drop = nn.Dropout(p=0.1)
         # Init near-identity for stable start
         nn.init.eye_(self.v_proj.weight)
         nn.init.zeros_(self.v_proj.bias)
@@ -103,6 +105,7 @@ class SpatialGatingUnit(nn.Module):
         V = self.v_proj(v)               # (B, seq_len, d_ffn)
         scale = self.d_ffn ** 0.5
         attn = torch.softmax(Q @ K.transpose(-1, -2) / scale, dim=-1)  # (B, seq_len, seq_len)
+        attn = self.attn_drop(attn)
         v_out = attn @ V                 # (B, seq_len, d_ffn)
         return u * v_out
 
