@@ -79,7 +79,7 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    """SGU with SiLU gate: apply SiLU on v after spatial mixing for nonlinear gate."""
+    """SGU with SiLU on both u and v: nonlinear gate on both paths."""
     def __init__(self, d_ffn, seq_len):
         super().__init__()
         self.norm         = nn.LayerNorm(d_ffn)
@@ -90,7 +90,8 @@ class SpatialGatingUnit(nn.Module):
         u, v = x.chunk(2, dim=-1)
         v = self.norm(v)
         v = self.spatial_proj(v)
-        v = F.silu(v)  # SiLU (Swish) gate activation
+        v = F.silu(v)    # SiLU gate activation on v
+        u = F.silu(u)    # SiLU on u path too
         return u * v
 
 
