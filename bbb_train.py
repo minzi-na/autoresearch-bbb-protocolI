@@ -79,13 +79,18 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    """Attention-based SGU: replaces Conv1d mixer with single-head self-attention.
-    With seq_len=4, this is efficient and content-dependent.
+    """Attention-based SGU with pre-norm on both u and v branches.
+
+    Current best (e38c2fd) normalizes only v before attention.
+    Adding a separate LayerNorm to u before gating stabilizes the scale
+    of the elementwise multiplication (u * v_out), which may help
+    with the small BBB dataset where variance can be high.
     """
     def __init__(self, d_ffn, seq_len):
         super().__init__()
-        self.norm  = nn.LayerNorm(d_ffn)
-        self.d_ffn = d_ffn
+        self.norm_v = nn.LayerNorm(d_ffn)   # normalize v (gate computation)
+        self.norm_u = nn.LayerNorm(d_ffn)   # normalize u (input signal)
+        self.d_ffn  = d_ffn
         # Self-attention Q, K, V projections for the v gate
         self.q_proj = nn.Linear(d_ffn, d_ffn)
         self.k_proj = nn.Linear(d_ffn, d_ffn)
@@ -96,7 +101,8 @@ class SpatialGatingUnit(nn.Module):
 
     def forward(self, x):
         u, v = x.chunk(2, dim=-1)        # (B, seq_len, d_ffn) each
-        v = self.norm(v)
+        u = self.norm_u(u)               # normalize u before gating
+        v = self.norm_v(v)               # normalize v before attention
         # Self-attention gating
         Q = self.q_proj(v)               # (B, seq_len, d_ffn)
         K = self.k_proj(v)               # (B, seq_len, d_ffn)
