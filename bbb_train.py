@@ -231,6 +231,7 @@ def train_model(model, optimizer, train_loader, val_loader, loss_fn,
             x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
             loss_fn(model(x), y).backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
         model.eval()
