@@ -163,7 +163,7 @@ class MultiModalGMLPFromFlat(nn.Module):
             d_model=d_model, d_ffn=d_ffn,
             seq_len=self.seq_len, num_layers=depth,
         )
-        self.norm = nn.LayerNorm(d_model)
+        self.norm = RMSNorm(d_model)
         if use_gated_pool:
             self.alpha = nn.Parameter(torch.zeros(self.seq_len))
         self.head = nn.Linear(d_model, 1)
