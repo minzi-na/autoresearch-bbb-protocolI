@@ -79,14 +79,17 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    """Attention-based SGU: replaces Conv1d mixer with single-head self-attention.
-    Content-dependent mixing — each token attends to all others dynamically.
-    Attention dropout p=0.1 applied to attention weights during training.
+    """2-head attention-based SGU for richer cross-modal interaction patterns.
+    d_ffn split into 2 heads, each attending independently.
+    Attention dropout p=0.1 per head.
     """
-    def __init__(self, d_ffn, seq_len):
+    def __init__(self, d_ffn, seq_len, n_heads=2):
         super().__init__()
+        assert d_ffn % n_heads == 0
         self.norm      = nn.LayerNorm(d_ffn)
         self.d_ffn     = d_ffn
+        self.n_heads   = n_heads
+        self.head_dim  = d_ffn // n_heads
         # Self-attention Q, K, V projections for the v gate
         self.q_proj    = nn.Linear(d_ffn, d_ffn)
         self.k_proj    = nn.Linear(d_ffn, d_ffn)
@@ -98,15 +101,16 @@ class SpatialGatingUnit(nn.Module):
 
     def forward(self, x):
         u, v = x.chunk(2, dim=-1)        # (B, seq_len, d_ffn) each
+        B, S, D = v.shape
         v = self.norm(v)
-        # Self-attention gating
-        Q = self.q_proj(v)               # (B, seq_len, d_ffn)
-        K = self.k_proj(v)               # (B, seq_len, d_ffn)
-        V = self.v_proj(v)               # (B, seq_len, d_ffn)
-        scale = self.d_ffn ** 0.5
-        attn = torch.softmax(Q @ K.transpose(-1, -2) / scale, dim=-1)  # (B, seq_len, seq_len)
+        # Multi-head self-attention gating
+        Q = self.q_proj(v).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)  # (B, H, S, hd)
+        K = self.k_proj(v).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
+        V = self.v_proj(v).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
+        scale = self.head_dim ** 0.5
+        attn = torch.softmax(Q @ K.transpose(-1, -2) / scale, dim=-1)  # (B, H, S, S)
         attn = self.attn_drop(attn)
-        v_out = attn @ V                 # (B, seq_len, d_ffn)
+        v_out = (attn @ V).transpose(1, 2).contiguous().view(B, S, D)  # (B, S, d_ffn)
         return u * v_out
 
 
