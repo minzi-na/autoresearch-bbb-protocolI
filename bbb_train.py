@@ -79,34 +79,32 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    def __init__(self, d_ffn, seq_len, n_heads=4):
+    """Attention-based SGU: replaces Conv1d mixer with single-head self-attention.
+    Content-dependent mixing — each token attends to all others dynamically.
+    """
+    def __init__(self, d_ffn, seq_len):
         super().__init__()
-        assert d_ffn % n_heads == 0, "d_ffn must be divisible by n_heads"
-        self.n_heads  = n_heads
-        self.head_dim = d_ffn // n_heads
-        self.norm     = nn.LayerNorm(d_ffn)
-        # Multi-head: each head learns an independent seq_len × seq_len mixing matrix
-        self.spatial_projs = nn.ModuleList([
-            nn.Conv1d(seq_len, seq_len, kernel_size=1)
-            for _ in range(n_heads)
-        ])
-        for proj in self.spatial_projs:
-            nn.init.constant_(proj.bias, 1.0)
-        # Learnable residual scale per head
-        self.gate_scale = nn.Parameter(torch.zeros(n_heads))
+        self.norm   = nn.LayerNorm(d_ffn)
+        self.d_ffn  = d_ffn
+        # Self-attention Q, K, V projections for the v gate
+        self.q_proj = nn.Linear(d_ffn, d_ffn)
+        self.k_proj = nn.Linear(d_ffn, d_ffn)
+        self.v_proj = nn.Linear(d_ffn, d_ffn)
+        # Init near-identity for stable start
+        nn.init.eye_(self.v_proj.weight)
+        nn.init.zeros_(self.v_proj.bias)
 
     def forward(self, x):
-        u, v = x.chunk(2, dim=-1)           # each: (B, seq_len, d_ffn)
+        u, v = x.chunk(2, dim=-1)        # (B, seq_len, d_ffn) each
         v = self.norm(v)
-        B, S, D = v.shape
-        # Split v into n_heads chunks along feature dim
-        v_heads = v.chunk(self.n_heads, dim=-1)   # each (B, S, head_dim)
-        out_heads = []
-        for i, (v_h, proj) in enumerate(zip(v_heads, self.spatial_projs)):
-            scale = self.gate_scale[i].exp()
-            out_heads.append(v_h + scale * (proj(v_h) - v_h))
-        v = torch.cat(out_heads, dim=-1)           # (B, S, d_ffn)
-        return u * v
+        # Self-attention gating
+        Q = self.q_proj(v)               # (B, seq_len, d_ffn)
+        K = self.k_proj(v)               # (B, seq_len, d_ffn)
+        V = self.v_proj(v)               # (B, seq_len, d_ffn)
+        scale = self.d_ffn ** 0.5
+        attn = torch.softmax(Q @ K.transpose(-1, -2) / scale, dim=-1)  # (B, seq_len, seq_len)
+        v_out = attn @ V                 # (B, seq_len, d_ffn)
+        return u * v_out
 
 
 class gMLPBlock(nn.Module):
@@ -323,7 +321,12 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             lr=BASE_CONFIG['lr'],
             weight_decay=BASE_CONFIG['weight_decay'],
         )
-        loss_fn = nn.BCEWithLogitsLoss()
+        # pos_weight: auto-calculated from train set to correct class imbalance
+        y_train_all = torch.cat([y for _, y in train_loader])
+        n_pos = (y_train_all == 1).float().sum()
+        n_neg = (y_train_all == 0).float().sum()
+        pos_weight = torch.tensor([n_neg / n_pos]).to(device)
+        loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         model = train_model(model, optimizer, train_loader, val_loader, loss_fn)
 
