@@ -194,7 +194,7 @@ class MultiModalGMLPFromFlat(nn.Module):
 def train_model(model, optimizer, train_loader, val_loader, loss_fn,
                 num_epochs=BASE_CONFIG['num_epochs'],
                 patience=BASE_CONFIG['patience']):
-    best_val   = float('inf')
+    best_val   = -1.0   # best val_roc_auc (higher = better)
     best_state = None
     bad        = 0
     t_start    = time.time()
@@ -212,16 +212,19 @@ def train_model(model, optimizer, train_loader, val_loader, loss_fn,
             loss_fn(model(x), y).backward()
             optimizer.step()
 
+        # Early stopping on val_roc_auc (more robust to scaffold distribution shift than val_loss)
         model.eval()
-        val_loss = 0.0
+        y_true_val, y_prob_val = [], []
         with torch.no_grad():
             for x, y in val_loader:
-                x, y = x.to(device), y.to(device)
-                val_loss += loss_fn(model(x), y).item()
-        val_loss /= max(len(val_loader), 1)
+                x = x.to(device)
+                prob = torch.sigmoid(model(x)).cpu().numpy()
+                y_prob_val.extend(prob.tolist())
+                y_true_val.extend(y.numpy().tolist())
+        val_auc = roc_auc_score(y_true_val, y_prob_val) if len(set(y_true_val)) > 1 else 0.0
 
-        if val_loss < best_val:
-            best_val   = val_loss
+        if val_auc > best_val:
+            best_val   = val_auc
             best_state = deepcopy(model.state_dict())
             bad        = 0
         else:
