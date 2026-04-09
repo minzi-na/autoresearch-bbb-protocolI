@@ -313,7 +313,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             use_gated_pool=True,
         ).to(device)
 
-        optimizer = optim.Adam(
+        optimizer = optim.AdamW(
             model.parameters(),
             lr=BASE_CONFIG['lr'],
             weight_decay=BASE_CONFIG['weight_decay'],
