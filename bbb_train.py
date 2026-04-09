@@ -350,12 +350,8 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             lr=BASE_CONFIG['lr'],
             weight_decay=BASE_CONFIG['weight_decay'],
         )
-        # pos_weight: automatically computed from train set label ratio
-        # BBB+ >> BBB- (~3:1), so pos_weight ≈ 0.32 to rebalance
-        train_labels = train_ds.tensors[1]
-        n_pos = (train_labels == 1).float().sum()
-        n_neg = (train_labels == 0).float().sum()
-        pos_weight = torch.tensor([n_neg / n_pos]).to(device)
+        # pos_weight: fixed at 0.28 (below auto ~0.32, explore lower side)
+        pos_weight = torch.tensor([0.28]).to(device)
         loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         model = train_model(model, optimizer, train_loader, val_loader, loss_fn)
