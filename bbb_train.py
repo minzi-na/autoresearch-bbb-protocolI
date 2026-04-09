@@ -195,6 +195,8 @@ def train_model(model, optimizer, train_loader, val_loader, loss_fn,
     best_state = None
     bad        = 0
     t_start    = time.time()
+    # Cosine annealing LR scheduler: decays lr from 1e-4 → ~0 over num_epochs
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=1e-6)
 
     for epoch in range(num_epochs):
         elapsed = time.time() - t_start
@@ -208,6 +210,7 @@ def train_model(model, optimizer, train_loader, val_loader, loss_fn,
             optimizer.zero_grad()
             loss_fn(model(x), y).backward()
             optimizer.step()
+        scheduler.step()
 
         model.eval()
         val_loss = 0.0
