@@ -79,8 +79,9 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    """2-head attention-based SGU for richer cross-modal interaction patterns.
-    d_ffn split into 2 heads, each attending independently.
+    """2-head attention-based SGU with learnable diagonal bias mask.
+    Diagonal bias encourages each modality token to focus on nearby tokens,
+    acting as a soft locality prior while still allowing global attention.
     Attention dropout p=0.1 per head.
     """
     def __init__(self, d_ffn, seq_len, n_heads=2):
@@ -90,11 +91,15 @@ class SpatialGatingUnit(nn.Module):
         self.d_ffn     = d_ffn
         self.n_heads   = n_heads
         self.head_dim  = d_ffn // n_heads
+        self.seq_len   = seq_len
         # Self-attention Q, K, V projections for the v gate
         self.q_proj    = nn.Linear(d_ffn, d_ffn)
         self.k_proj    = nn.Linear(d_ffn, d_ffn)
         self.v_proj    = nn.Linear(d_ffn, d_ffn)
         self.attn_drop = nn.Dropout(p=0.1)
+        # Learnable diagonal bias: shape (seq_len, seq_len), init to 0
+        # At softmax, this adds a learned locality prior to attention logits
+        self.diag_bias = nn.Parameter(torch.zeros(seq_len, seq_len))
         # Init near-identity for stable start
         nn.init.eye_(self.v_proj.weight)
         nn.init.zeros_(self.v_proj.bias)
@@ -108,7 +113,10 @@ class SpatialGatingUnit(nn.Module):
         K = self.k_proj(v).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
         V = self.v_proj(v).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
         scale = self.head_dim ** 0.5
-        attn = torch.softmax(Q @ K.transpose(-1, -2) / scale, dim=-1)  # (B, H, S, S)
+        logits = Q @ K.transpose(-1, -2) / scale  # (B, H, S, S)
+        # Add learnable diagonal bias (broadcast over batch and heads)
+        logits = logits + self.diag_bias.unsqueeze(0).unsqueeze(0)
+        attn = torch.softmax(logits, dim=-1)  # (B, H, S, S)
         attn = self.attn_drop(attn)
         v_out = (attn @ V).transpose(1, 2).contiguous().view(B, S, D)  # (B, S, d_ffn)
         return u * v_out
