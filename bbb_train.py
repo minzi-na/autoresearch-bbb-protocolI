@@ -350,8 +350,8 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             lr=BASE_CONFIG['lr'],
             weight_decay=BASE_CONFIG['weight_decay'],
         )
-        # pos_weight: fixed at 0.16 (continuing lower from 0.20-keep)
-        pos_weight = torch.tensor([0.16]).to(device)
+        # pos_weight: fixed at 0.12 (continuing lower from 0.16-keep)
+        pos_weight = torch.tensor([0.12]).to(device)
         loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         model = train_model(model, optimizer, train_loader, val_loader, loss_fn)
