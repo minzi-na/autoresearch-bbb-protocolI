@@ -339,11 +339,8 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             lr=BASE_CONFIG['lr'],
             weight_decay=BASE_CONFIG['weight_decay'],
         )
-        # pos_weight: auto-calculated from train set to correct class imbalance
-        y_train_all = torch.cat([y for _, y in train_loader])
-        n_pos = (y_train_all == 1).float().sum()
-        n_neg = (y_train_all == 0).float().sum()
-        pos_weight = torch.tensor([n_neg / n_pos]).to(device)
+        # pos_weight: fixed 0.28 (combo1 tuning found slight underweighting of positives helps)
+        pos_weight = torch.tensor([0.28]).to(device)
         loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         model = train_model(model, optimizer, train_loader, val_loader, loss_fn)
