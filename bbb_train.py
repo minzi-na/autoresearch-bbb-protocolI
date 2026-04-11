@@ -196,6 +196,8 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         if use_gated_pool:
             self.alpha = nn.Parameter(torch.zeros(self.seq_len))
+        # Learnable gate for input skip connection: z=0 → pure backbone, z=1 → full skip
+        self.skip_gate = nn.Parameter(torch.zeros(1))
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
 
@@ -203,8 +205,11 @@ class MultiModalGMLPFromFlat(nn.Module):
         chunks = torch.split(x, self.mod_dims, dim=1)
         tokens = [self.proj[name](chunk)
                   for name, chunk in zip(self.mod_names, chunks)]
-        X = torch.stack(tokens, dim=1)          # (B, seq_len, d_model)
-        X = self.backbone(X)
+        X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) — pre-backbone
+        X  = self.backbone(X0)
+        # Skip connection: mix backbone output with pre-backbone tokens
+        gate = torch.sigmoid(self.skip_gate)
+        X = (1.0 - gate) * X + gate * X0        # learned convex combination
         if self.use_gated_pool:
             w  = torch.softmax(self.alpha, dim=0)
             Xp = (X * w.view(1, -1, 1)).sum(dim=1)
