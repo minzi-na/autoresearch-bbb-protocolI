@@ -45,7 +45,7 @@ BASE_CONFIG = {
     'd_model':      512,
     'd_ffn':        1048,
     'depth':        4,
-    'dropout':      0.2,
+    'dropout':      0.1,
     'lr':           1e-4,
     'weight_decay': 1e-5,
     'num_epochs':   NUM_EPOCHS,   # 50, from bbb_prepare
