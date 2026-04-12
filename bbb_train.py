@@ -19,15 +19,21 @@ import os
 import sys
 import json
 import pickle
+import shutil
 import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import torch.optim as optim
 from bbb_prepare import *  # fixed utilities, constants, device
 from copy import deepcopy
+from sklearn.metrics import roc_auc_score
 
-# Artifact output directory (current run — agent copies to best/ on keep)
-ARTIFACT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bbb_artifacts', 'current')
+# Artifact directories — keep a consistent best/current/archive layout.
+ARTIFACT_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bbb_artifacts')
+BEST_ARTIFACT_DIR = os.path.join(ARTIFACT_ROOT, 'best')
+CURRENT_ARTIFACT_DIR = os.path.join(ARTIFACT_ROOT, 'current')
+ARCHIVE_ARTIFACT_DIR = os.path.join(ARTIFACT_ROOT, 'archive')
+ARTIFACT_DIR = CURRENT_ARTIFACT_DIR
 
 # Dataset cache directory — computed once, reloaded on every subsequent run
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dataset_cache')
@@ -36,6 +42,48 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dataset_ca
 # Acts as a safeguard against architectures that are too heavy for this dataset.
 # Normal training completes in ~20-40s/seed; 300s allows ~10x headroom.
 TIME_BUDGET = 300
+
+
+def _unique_archive_path(name: str) -> str:
+    base = os.path.join(ARCHIVE_ARTIFACT_DIR, name)
+    if not os.path.exists(base):
+        return base
+    idx = 1
+    while True:
+        candidate = f'{base}_{idx}'
+        if not os.path.exists(candidate):
+            return candidate
+        idx += 1
+
+
+def ensure_artifact_layout():
+    expected_seed_dirs = {f'seed_{seed}' for seed in SEEDS}
+    os.makedirs(BEST_ARTIFACT_DIR, exist_ok=True)
+    os.makedirs(CURRENT_ARTIFACT_DIR, exist_ok=True)
+    os.makedirs(ARCHIVE_ARTIFACT_DIR, exist_ok=True)
+
+    readme_path = os.path.join(ARTIFACT_ROOT, 'README.txt')
+    readme = (
+        'Layout:\n'
+        '  best/    active kept best seed artifacts\n'
+        '  current/ latest run artifacts before keep decision\n'
+        '  archive/ older snapshots or non-standard directories moved aside\n'
+    )
+    with open(readme_path, 'w') as f:
+        f.write(readme)
+
+    for name in os.listdir(ARTIFACT_ROOT):
+        if name in {'best', 'current', 'archive', 'README.txt'}:
+            continue
+        src = os.path.join(ARTIFACT_ROOT, name)
+        shutil.move(src, _unique_archive_path(name))
+
+    for parent in [BEST_ARTIFACT_DIR, CURRENT_ARTIFACT_DIR]:
+        for name in os.listdir(parent):
+            if name in expected_seed_dirs:
+                continue
+            src = os.path.join(parent, name)
+            shutil.move(src, _unique_archive_path(f'{os.path.basename(parent)}_{name}'))
 
 # ---------------------------------------------------------------------------
 # Fixed hyperparameters — DO NOT MODIFY
@@ -186,13 +234,16 @@ class MultiModalGMLPFromFlat(nn.Module):
             self.alpha = nn.Parameter(torch.zeros(self.seq_len))
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
+        self.skip_gate = nn.Parameter(torch.zeros(1))  # gate_init=0; learned convex mix of backbone + pre-backbone
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
         tokens = [self.proj[name](chunk)
                   for name, chunk in zip(self.mod_names, chunks)]
-        X = torch.stack(tokens, dim=1)          # (B, seq_len, d_model)
-        X = self.backbone(X)
+        X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) — pre-backbone tokens
+        X  = self.backbone(X0)
+        gate = torch.sigmoid(self.skip_gate)
+        X = (1.0 - gate) * X + gate * X0        # learned convex combination
         if self.use_gated_pool:
             w  = torch.softmax(self.alpha, dim=0)
             Xp = (X * w.view(1, -1, 1)).sum(dim=1)
@@ -286,6 +337,24 @@ def apply_scaler(X: torch.Tensor, scaler, rd_start, rd_end) -> torch.Tensor:
     return X
 
 
+def predict_probs(model, loader) -> np.ndarray:
+    """Return sigmoid probabilities for the full loader in dataset order."""
+    model.eval()
+    probs = []
+    with torch.no_grad():
+        for x, _ in loader:
+            x = x.to(device)
+            probs.extend(torch.sigmoid(model(x)).cpu().numpy())
+    return np.asarray(probs, dtype=np.float32)
+
+
+def roc_auc_from_probs(y_true: torch.Tensor, probs: np.ndarray) -> float:
+    y_true_np = y_true.cpu().numpy()
+    if len(set(y_true_np.tolist())) <= 1:
+        return 0.0
+    return round(float(roc_auc_score(y_true_np, probs)), 4)
+
+
 # ---------------------------------------------------------------------------
 # Evaluation: scaffold split, 10 seeds
 # ---------------------------------------------------------------------------
@@ -294,11 +363,12 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
     """
     Train with scaffold split across all SEEDS.
     Returns:
-        mean internal test ROC-AUC  (float)
-        mean external ROC-AUC       (float)
-        mean holdout ROC-AUC        (float)
+        mean internal test ROC-AUC           (float)
+        soft-voting ensemble external ROC-AUC (float)
+        soft-voting ensemble holdout ROC-AUC  (float)
     """
-    int_aucs, ext_aucs, holdout_aucs = [], [], []
+    int_aucs = []
+    ext_seed_probs, holdout_seed_probs = [], []
 
     for seed in SEEDS:
         set_seed(seed)
@@ -345,13 +415,15 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
 
         model = train_model(model, optimizer, train_loader, val_loader, loss_fn)
 
-        int_auc     = eval_model(model, test_loader)['roc_auc']
-        ext_auc     = eval_model(model, ext_loader)['roc_auc']
-        holdout_auc = eval_model(model, holdout_loader)['roc_auc']
+        int_auc = eval_model(model, test_loader)['roc_auc']
+        ext_probs = predict_probs(model, ext_loader)
+        holdout_probs = predict_probs(model, holdout_loader)
+        ext_auc = roc_auc_from_probs(ext_dataset.labels, ext_probs)
+        holdout_auc = roc_auc_from_probs(holdout_dataset.labels, holdout_probs)
 
         int_aucs.append(int_auc)
-        ext_aucs.append(ext_auc)
-        holdout_aucs.append(holdout_auc)
+        ext_seed_probs.append(ext_probs)
+        holdout_seed_probs.append(holdout_probs)
         print(f"  seed={seed:>4d}  int={int_auc:.4f}  ext={ext_auc:.4f}  holdout={holdout_auc:.4f}")
 
         # ── Save artifacts for this seed ──────────────────────────────────
@@ -387,7 +459,12 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             torch.cuda.empty_cache()
 
     mean = lambda lst: float(sum(lst) / len(lst))
-    return mean(int_aucs), mean(ext_aucs), mean(holdout_aucs)
+    ext_ensemble_probs = np.mean(np.stack(ext_seed_probs, axis=0), axis=0)
+    holdout_ensemble_probs = np.mean(np.stack(holdout_seed_probs, axis=0), axis=0)
+    ext_auc = roc_auc_from_probs(ext_dataset.labels, ext_ensemble_probs)
+    holdout_auc = roc_auc_from_probs(holdout_dataset.labels, holdout_ensemble_probs)
+    print(f"  [ensemble] ext={ext_auc:.4f}  holdout={holdout_auc:.4f}")
+    return mean(int_aucs), ext_auc, holdout_auc
 
 
 # ---------------------------------------------------------------------------
@@ -396,6 +473,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
 
 if __name__ == '__main__':
     t_start = time.time()
+    ensure_artifact_layout()
 
     print('Loading internal dataset...')
     dataset       = load_cached_dataset('internal', LABEL_PATH, EMBED_PATHS, fp_types=FP_TYPES)
