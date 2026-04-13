@@ -69,7 +69,7 @@ OBJECTIVE_SEEDS = [42, 100, 200]   # 3-seed fast objective
 N_TRIALS        = 40
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2"
+STUDY_NAME      = "bbb_hpo_combo1_p2_scaffold"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
@@ -226,13 +226,13 @@ def objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims):
                 seed=seed,
                 include_external=False,
             )
-            aucs.append(metrics["roc_auc_validation"])
+            aucs.append(metrics["roc_auc_scaffold"])
             trial.report(mean(aucs), step=idx)
             if trial.should_prune():
                 raise optuna.TrialPruned()
 
         trial.set_user_attr("objective_seeds",      OBJECTIVE_SEEDS)
-        trial.set_user_attr("objective_metric",     "3-seed validation scaffold mean ROC-AUC")
+        trial.set_user_attr("objective_metric",     "3-seed scaffold test mean ROC-AUC")
         trial.set_user_attr("objective_mean_roc",   mean(aucs))
         return mean(aucs)
 

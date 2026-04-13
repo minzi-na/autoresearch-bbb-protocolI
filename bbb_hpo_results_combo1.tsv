@@ -1,1 +1,2 @@
 commit	best_val_roc	best_ext	best_holdout	best_trial	total_trials	status	description
+78f39d0	0.8600	0.7616	0.8009	31	40	discard	initial broad search (validation objective, 3-seed); val-scaffold gap (+0.009); TPE→d_model=768 dropout=0.23; reevaluated scaffold 0.8600 < P1 best 0.8757
