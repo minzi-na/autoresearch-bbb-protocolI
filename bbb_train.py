@@ -381,7 +381,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         optimizer = optim.Adam(
             model.parameters(),
             lr=BASE_CONFIG['lr'],
-            weight_decay=BASE_CONFIG['weight_decay'],
+            weight_decay=1e-4,  # increased from 1e-5 for more L2 regularization
         )
         # pos_weight: fixed at 0.08 (continuing lower from 0.12-keep)
         pos_weight = torch.tensor([0.08]).to(device)
