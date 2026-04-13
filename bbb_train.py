@@ -78,6 +78,18 @@ HOLDOUT_EMBED_PATHS = {
 # Model Architecture  (agent modifies this section)
 # ---------------------------------------------------------------------------
 
+class RMSNorm(nn.Module):
+    """Root Mean Square Layer Normalization (no mean centering)."""
+    def __init__(self, d, eps=1e-8):
+        super().__init__()
+        self.scale = nn.Parameter(torch.ones(d))
+        self.eps   = eps
+
+    def forward(self, x):
+        rms = x.pow(2).mean(dim=-1, keepdim=True).add(self.eps).sqrt()
+        return (x / rms) * self.scale
+
+
 class SpatialGatingUnit(nn.Module):
     """Attention-based SGU with pre-norm on both u and v + learned temperature + attn dropout.
 
@@ -132,7 +144,7 @@ class gMLPBlock(nn.Module):
     """
     def __init__(self, d_model, d_ffn, seq_len, drop_prob=0.0):
         super().__init__()
-        self.norm          = nn.LayerNorm(d_model)
+        self.norm          = RMSNorm(d_model)
         self.channel_proj1 = nn.Linear(d_model, d_ffn * 2)
         self.channel_proj2 = nn.Linear(d_ffn, d_model)
         self.sgu           = SpatialGatingUnit(d_ffn, seq_len)
