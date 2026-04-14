@@ -4,3 +4,4 @@ c237cc8	0.8791	0.7742	0.8216	9	40	discard	scaffold test obj (clean study); same 
 c863486	0.8830	0.7659	0.8101	12	40	discard	warm-start P1 best + narrow space; 3-seed obj still biased — P1 best trial0 obj=0.8725 but TPE moves to drop=0.24 lr=3e-4; roc_s=0.8574 < P1; 3-seed noise confirmed
 cdc7e72	0.8702	0.7725	0.8146	16	40	discard	5-seed obj; P1 best scores 0.8657 on seeds[42-400] vs 0.8755 on 10-seed; seeds[500-900] much higher for P1 best; TPE misled; roc_s=0.8666
 99b0e50	0.8658	0.7786	0.8176	0	1	keep	DIAGNOSTIC: P1 best 10-seed reeval=0.8755≈Phase1 0.8757; roc_ext/holdout exact match; eval gap resolved; problem=seed-set bias in objective
+d3fa012	0.8675	0.7788	0.8187	31	40	discard	5-seed spread[42,200,400,600,800]; P1 best obj=0.8668 but 10-seed=0.8755 (gap -0.009); config-specific bias; roc_s=0.8649 < P1
