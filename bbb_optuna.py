@@ -65,9 +65,9 @@ BEST_DIR   = os.path.join(OPTUNA_DIR, "best_hpo")
 POS_WEIGHT  = 0.08   # optimal pos_weight from Phase 1 (iter-series sweep)
 GRAD_CLIP   = 1.0    # max_norm kept in iter82
 
-# Architecture params fixed after HPO convergence (runs 3-4)
+# Architecture params fixed for this run (switch to d_model=512 to test vs P1 best)
 FIXED_CONFIG = {
-    "d_model":    384,
+    "d_model":    512,
     "d_ffn":      1048,
     "batch_size": 256,
 }
@@ -79,16 +79,16 @@ OBJECTIVE_SEEDS = [42, 100, 200]   # 3-seed fast objective
 N_TRIALS        = 60
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_v6"
+STUDY_NAME      = "bbb_hpo_combo1_p2_v7"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
     return {
         **FIXED_CONFIG,                                # d_model=384 d_ffn=1048 batch_size=256
         "depth":        BASE_CONFIG["depth"],          # fixed at 4 (Phase 1)
-        "dropout":      trial.suggest_float("dropout", 0.03, 0.12),
+        "dropout":      trial.suggest_float("dropout", 0.05, 0.20),
         "lr":           trial.suggest_float("lr",          8e-5, 2e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 5e-7, 8e-6, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 5e-6, 5e-5, log=True),
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
     }
