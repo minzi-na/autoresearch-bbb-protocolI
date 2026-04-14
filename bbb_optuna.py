@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v30_grad_clip"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v31_label_smooth"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -104,21 +104,21 @@ CLUSTER_PROBE_PARAMS = {
     "stochastic_depth_rate": 0.05,
 }
 
-# run30: grad_clip tuning; warm-start from run28 trial44 + grad_clip=1.0
-CLIP_PROBE_PARAMS = {
+# run31: label_smoothing tuning; warm-start from run28 trial44 + label_smoothing=0.0
+LS_PROBE_PARAMS = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
-    "grad_clip":             1.0,
+    "label_smoothing":       0.0,
     "stochastic_depth_rate": 0.05,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # grad_clip: never tuned (always 1.0); try {0.5, 1.0, 2.0, 5.0}
+    # label_smoothing: never tried in combo1; try {0.0, 0.01, 0.02, 0.05}
     return {
         "d_model":               512,
         "d_ffn":                 1048,
@@ -126,13 +126,26 @@ def build_trial_config(trial: optuna.Trial) -> dict:
         "dropout":               trial.suggest_float("dropout", 0.030, 0.065),
         "lr":                    trial.suggest_float("lr", 8.5e-5, 1.35e-4, log=True),
         "weight_decay":          trial.suggest_float("weight_decay", 2e-6, 1e-5, log=True),
-        "grad_clip":             trial.suggest_categorical("grad_clip", [0.5, 1.0, 2.0, 5.0]),
+        "label_smoothing":       trial.suggest_categorical("label_smoothing", [0.0, 0.01, 0.02, 0.05]),
         "pos_weight":            POS_WEIGHT,
         "stochastic_depth_rate": 0.05,
         "depth":                 BASE_CONFIG["depth"],
         "num_epochs":            BASE_CONFIG["num_epochs"],
         "patience":              BASE_CONFIG["patience"],
     }
+
+
+class LabelSmoothBCE(nn.Module):
+    """BCEWithLogitsLoss with binary label smoothing: 0→eps/2, 1→1−eps/2."""
+    def __init__(self, pos_weight: torch.Tensor, epsilon: float = 0.0):
+        super().__init__()
+        self._bce = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        self.epsilon = epsilon
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        if self.epsilon > 0.0:
+            targets = targets * (1.0 - self.epsilon) + 0.5 * self.epsilon
+        return self._bce(logits, targets)
 
 
 def make_model(mod_dims: OrderedDict, config: dict) -> nn.Module:
@@ -162,7 +175,7 @@ def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: 
             x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
             loss_fn(model(x), y).backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.get("grad_clip", GRAD_CLIP))
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=GRAD_CLIP)
             optimizer.step()
 
         model.eval()
@@ -211,7 +224,7 @@ def evaluate_seed(config: dict, dataset, ext_dataset, holdout_dataset, mod_dims,
         weight_decay=config["weight_decay"],
     )
     pos_weight_t = torch.tensor([config.get("pos_weight", POS_WEIGHT)]).to(device)
-    loss_fn      = nn.BCEWithLogitsLoss(pos_weight=pos_weight_t)
+    loss_fn      = LabelSmoothBCE(pos_weight=pos_weight_t, epsilon=config.get("label_smoothing", 0.0))
 
     model = train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config)
 
@@ -382,9 +395,9 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: run28 best + grad_clip=1.0 (baseline for comparison)
+    # Warm-start: run28 best + label_smoothing=0.0 (baseline for comparison)
     if len(study.trials) == 0:
-        study.enqueue_trial(CLIP_PROBE_PARAMS)
+        study.enqueue_trial(LS_PROBE_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
