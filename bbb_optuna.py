@@ -81,19 +81,29 @@ OBJECTIVE_SEEDS = [42, 100, 200]   # 3-seed objective for speed in initial broad
 N_TRIALS        = 40
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v2_broad_scaffold"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v3_warmstart"
+
+# Phase 1 best config for warm-start enqueue
+P1_BEST_PARAMS = {
+    "d_model":      512,
+    "d_ffn":        1048,
+    "batch_size":   128,
+    "dropout":      0.1,
+    "lr":           1e-4,
+    "weight_decay": 1e-4,
+}
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    d_model = trial.suggest_categorical("d_model", [256, 384, 512, 768])
-    d_ffn   = trial.suggest_categorical("d_ffn",   [512, 768, 1048, 1536, 2048])
+    d_model = trial.suggest_categorical("d_model", [384, 512])
+    d_ffn   = trial.suggest_categorical("d_ffn",   [768, 1048, 1536])
     return {
         "d_model":      d_model,
         "d_ffn":        d_ffn,
-        "batch_size":   trial.suggest_categorical("batch_size", [64, 128, 256]),
-        "dropout":      trial.suggest_float("dropout", 0.0, 0.4),
-        "lr":           trial.suggest_float("lr", 1e-5, 5e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),
+        "batch_size":   trial.suggest_categorical("batch_size", [128, 256]),
+        "dropout":      trial.suggest_float("dropout", 0.05, 0.25),
+        "lr":           trial.suggest_float("lr", 5e-5, 3e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 5e-6, 5e-4, log=True),
         "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
@@ -346,6 +356,10 @@ def main():
         storage=f"sqlite:///{OPTUNA_DB}",
         load_if_exists=True,
     )
+
+    # Warm-start: Phase 1 best config as first trial (TPE builds from known baseline)
+    if len(study.trials) == 0:
+        study.enqueue_trial(P1_BEST_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
