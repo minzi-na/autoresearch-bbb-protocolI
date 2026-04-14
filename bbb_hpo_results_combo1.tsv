@@ -21,3 +21,4 @@ bcc8273	0.8782	0.7782	0.8172	23	50	keep	NEW BEST roc_s=0.87818; d_ffn=1048+bs128
 291a486	0.8784	0.7784	0.8173	1	50	discard	wider+bs=[128,256]; bs=256 never top-3; warm-start=best(0.87840); 2 consec discard → sampler switch: CMA-ES
 8c81890	0.8784	0.7784	0.8173	1	50	discard	CMA-ES(x0=cluster best,sigma0=0.3,ipop); trial29=0.87793<best; 3 consec discard → direction switch: d_model=768
 90665a3	0.8784	0.7784	0.8173	0	50	discard	d_model=[512,768]; d768 probe roc_s=0.86206(<<512); d512 still best; → run23 final: drop下限=0.02 탐색
+aabde14	0.8784	0.7784	0.8173	0	50	discard	final(drop=[0.02,0.08],wd=[5e-7,2e-4]); drop<0.03 not selected; warm-start=best(0.87840) confirmed plateau; STOP
