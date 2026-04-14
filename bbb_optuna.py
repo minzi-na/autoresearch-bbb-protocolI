@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v26_stoch_depth"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v27_patience"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -93,7 +93,7 @@ P1_BEST_PARAMS = {
     "weight_decay": 1e-4,
 }
 
-# run18 trial35 best + sdr=0.05 (baseline)
+# run18 trial35 best + sdr=0.05 + patience=10 (baseline)
 CLUSTER_PROBE_PARAMS = {
     "d_model":               512,
     "d_ffn":                 1048,
@@ -102,6 +102,7 @@ CLUSTER_PROBE_PARAMS = {
     "lr":                    1.0659008483038048e-4,
     "weight_decay":          3.5528800478379304e-6,
     "stochastic_depth_rate": 0.05,
+    "patience":              10,
 }
 
 # d_ffn=2048 probe: cluster best params with d_ffn=2048 (never tried)
@@ -116,11 +117,11 @@ D2048_PROBE_PARAMS = {
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # stochastic_depth_rate tuning: never explored in Phase 2 (fixed at 0.05)
-    # cluster region for other params; sdr=[0.0,0.05,0.10,0.15]
+    # patience tuning: base patience=10 (bbb_prepare.py) may be too tight
+    # num_epochs=100 to avoid epoch ceiling; sdr=0.05 confirmed optimal
     d_model = 512
     d_ffn   = 1048
-    sdr     = trial.suggest_categorical("stochastic_depth_rate", [0.0, 0.05, 0.10, 0.15])
+    patience = trial.suggest_categorical("patience", [10, 20, 30])
     return {
         "d_model":               d_model,
         "d_ffn":                 d_ffn,
@@ -128,10 +129,10 @@ def build_trial_config(trial: optuna.Trial) -> dict:
         "dropout":               trial.suggest_float("dropout", 0.035, 0.065),
         "lr":                    trial.suggest_float("lr", 8.5e-5, 1.25e-4, log=True),
         "weight_decay":          trial.suggest_float("weight_decay", 1.5e-6, 1.2e-5, log=True),
-        "stochastic_depth_rate": sdr,
+        "stochastic_depth_rate": 0.05,
         "depth":                 BASE_CONFIG["depth"],
-        "num_epochs":            BASE_CONFIG["num_epochs"],
-        "patience":              BASE_CONFIG["patience"],
+        "num_epochs":            100,
+        "patience":              patience,
     }
 
 
