@@ -3,3 +3,4 @@ commit	best_val_roc	best_ext	best_holdout	best_trial	total_trials	status	descrip
 d9aa2f4	0.8651	0.7557	0.7967	22	40	keep	objective fix: scaffold test ROC (not val); TPE converged d_model=256 d_ffn=768 bs=256 lr=2.4e-4 wd=2.3e-6 drop=0.113; reeval roc_s=0.8690 < P1 0.8757
 bffc82a	0.8834	0.7763	0.8163	32	50	keep	narrow space+multivariate TPE; d_model=256→384 d_ffn=1048 bs=256 lr≈1.0-1.1e-4 wd≈2.5-3.8e-6 drop≈0.056-0.063; reeval roc_s=0.8713 > run2 < P1 0.8757
 56962eb	0.8836	0.7763	0.8159	35	50	keep	d_model=[384,512] d_ffn=[768,1048] lr=1e-4~2e-4; TPE→384+1048 확정; lr≈1.09-1.13e-4 wd≈1.0-1.6e-6 drop≈0.04-0.056; roc_s=0.8715 plateau
+ae3b3f6	0.8827	0.7720	0.8097	5	60	discard	BUG: d_model/d_ffn/batch_size 미등록→reevaluation이 BASE_CONFIG d_model=512로 실행; roc_s=0.8597은 잘못된 값

@@ -65,6 +65,13 @@ BEST_DIR   = os.path.join(OPTUNA_DIR, "best_hpo")
 POS_WEIGHT  = 0.08   # optimal pos_weight from Phase 1 (iter-series sweep)
 GRAD_CLIP   = 1.0    # max_norm kept in iter82
 
+# Architecture params fixed after HPO convergence (runs 3-4)
+FIXED_CONFIG = {
+    "d_model":    384,
+    "d_ffn":      1048,
+    "batch_size": 256,
+}
+
 # --------------------------------------------------------------------------
 # Optuna study config
 # --------------------------------------------------------------------------
@@ -72,20 +79,18 @@ OBJECTIVE_SEEDS = [42, 100, 200]   # 3-seed fast objective
 N_TRIALS        = 60
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_v5"
+STUDY_NAME      = "bbb_hpo_combo1_p2_v6"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
     return {
-        "d_model":      384,                           # fixed (converged)
-        "d_ffn":        1048,                          # fixed (converged)
+        **FIXED_CONFIG,                                # d_model=384 d_ffn=1048 batch_size=256
         "depth":        BASE_CONFIG["depth"],          # fixed at 4 (Phase 1)
         "dropout":      trial.suggest_float("dropout", 0.03, 0.12),
         "lr":           trial.suggest_float("lr",          8e-5, 2e-4, log=True),
         "weight_decay": trial.suggest_float("weight_decay", 5e-7, 8e-6, log=True),
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
-        "batch_size":   256,                           # fixed (converged)
     }
 
 
@@ -267,6 +272,7 @@ def reevaluate_best_trials(study, dataset, ext_dataset, holdout_dataset, mod_dim
     for trial in selected:
         config = dict(BASE_CONFIG)
         config.update(trial.params)
+        config.update(FIXED_CONFIG)   # ensure fixed params override BASE_CONFIG
         int_aucs = []
         ext_seed_probs, holdout_seed_probs = [], []
 
