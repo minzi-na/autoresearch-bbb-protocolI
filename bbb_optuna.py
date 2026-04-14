@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v21_cmaes"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v22_d768"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -103,12 +103,21 @@ CLUSTER_PROBE_PARAMS = {
     "weight_decay": 3.5528800478379304e-6,
 }
 
+# d_model=768 probe: cluster best params with d_model=768 (never tried)
+D768_PROBE_PARAMS = {
+    "d_model":      768,
+    "d_ffn":        1048,
+    "batch_size":   128,
+    "dropout":      0.04655455717029762,
+    "lr":           1.0659008483038048e-4,
+    "weight_decay": 3.5528800478379304e-6,
+}
+
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # CMA-ES: continuous optimization around confirmed cluster
-    # d_model=512, d_ffn=1048, bs=128 fixed; CMA-ES handles correlations between
-    # drop/lr/wd better than TPE in this narrow continuous space
-    d_model = 512
+    # d_model expansion: test 768 vs 512 in cluster region
+    # 768 never tried in Phase 2; cluster: drop≈0.047, lr≈1.07e-4, wd≈3.5e-6
+    d_model = trial.suggest_categorical("d_model", [512, 768])
     d_ffn   = 1048
     return {
         "d_model":      d_model,
@@ -359,17 +368,7 @@ def main():
     print(f"Holdout  : {len(holdout_dataset)} samples")
     print(f"Mod dims : {dict(mod_dims)}")
 
-    # CMA-ES: better for continuous space near confirmed optimum; warm-start from cluster best
-    sampler = optuna.samplers.CmaEsSampler(
-        seed=42,
-        x0={
-            "dropout":      0.04655455717029762,
-            "lr":           1.0659008483038048e-4,
-            "weight_decay": 3.5528800478379304e-6,
-        },
-        sigma0=0.3,
-        restart_strategy="ipop",
-    )
+    sampler = optuna.samplers.TPESampler(seed=42, n_startup_trials=10)
     pruner  = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=1)
     study   = optuna.create_study(
         study_name=STUDY_NAME,
@@ -380,10 +379,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: P1 best + run15 cluster best
+    # Warm-start: cluster best (d512) + d768 probe with same params
     if len(study.trials) == 0:
-        study.enqueue_trial(P1_BEST_PARAMS)
         study.enqueue_trial(CLUSTER_PROBE_PARAMS)
+        study.enqueue_trial(D768_PROBE_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)

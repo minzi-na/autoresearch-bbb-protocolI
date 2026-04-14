@@ -19,3 +19,4 @@ bcc8273	0.8782	0.7782	0.8172	23	50	keep	NEW BEST roc_s=0.87818; d_ffn=1048+bs128
 3d2d7c8	0.8784	0.7784	0.8173	35	50	keep	NEW BEST roc_s=0.87840; d_ffn=1048+bs128+drop=0.047+lr=1.066e-4+wd=3.55e-6; cluster converging drop≈0.047,lr≈1.07e-4,wd≈3.5e-6; → run19 final narrow
 689db26	0.8784	0.7784	0.8173	1	50	discard	cluster3(drop=[0.03,0.06],lr=[9e-5,1.2e-4],wd=[2e-6,8e-6]); warm-start=best(0.87840); TPE trial11=0.87826<best; local optima reached; → run20 bs=256+wider
 291a486	0.8784	0.7784	0.8173	1	50	discard	wider+bs=[128,256]; bs=256 never top-3; warm-start=best(0.87840); 2 consec discard → sampler switch: CMA-ES
+8c81890	0.8784	0.7784	0.8173	1	50	discard	CMA-ES(x0=cluster best,sigma0=0.3,ipop); trial29=0.87793<best; 3 consec discard → direction switch: d_model=768
