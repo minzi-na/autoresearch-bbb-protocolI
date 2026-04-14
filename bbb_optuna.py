@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v11_5seed_cal"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v12_narrow"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -105,15 +105,17 @@ LOW_WD_PROBE_PARAMS = {
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    d_model = trial.suggest_categorical("d_model", [384, 512])
+    # Narrowed: d_model=512 only (384 consistently underperforms in reeval);
+    # lr tightened around P1 best; dropout narrowed; wd extended range kept
+    d_model = 512
     d_ffn   = trial.suggest_categorical("d_ffn",   [768, 1048, 1536])
     return {
         "d_model":      d_model,
         "d_ffn":        d_ffn,
         "batch_size":   trial.suggest_categorical("batch_size", [128, 256]),
-        "dropout":      trial.suggest_float("dropout", 0.03, 0.25),
-        "lr":           trial.suggest_float("lr", 5e-5, 3e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),  # extended to 1e-6
+        "dropout":      trial.suggest_float("dropout", 0.03, 0.20),
+        "lr":           trial.suggest_float("lr", 7e-5, 2e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),
         "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
