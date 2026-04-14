@@ -72,16 +72,16 @@ OBJECTIVE_SEEDS = [42, 100, 200]   # 3-seed fast objective
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_v3"
+STUDY_NAME      = "bbb_hpo_combo1_p2_v4"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
     return {
-        "d_model":      trial.suggest_categorical("d_model",   [256, 384, 512]),
-        "d_ffn":        trial.suggest_categorical("d_ffn",     [512, 768, 1048]),
+        "d_model":      trial.suggest_categorical("d_model",   [384, 512]),
+        "d_ffn":        trial.suggest_categorical("d_ffn",     [768, 1048]),
         "depth":        BASE_CONFIG["depth"],          # fixed at 4 (Phase 1)
-        "dropout":      trial.suggest_float("dropout", 0.05, 0.25),
-        "lr":           trial.suggest_float("lr",          1e-4, 5e-4, log=True),
+        "dropout":      trial.suggest_float("dropout", 0.04, 0.15),
+        "lr":           trial.suggest_float("lr",          1e-4, 2e-4, log=True),
         "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-5, log=True),
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
