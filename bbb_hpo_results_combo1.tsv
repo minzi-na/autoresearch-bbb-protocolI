@@ -16,3 +16,4 @@ f6353ec	0.8760	0.7786	0.8180	2	50	keep	NEW BEST: trial2 roc_s=0.87603>P1(0.8757)
 7f5425a	0.8768	0.7787	0.8174	34	50	keep	NEW BEST roc_s=0.87683; d_ffn=1048+bs128+drop=0.058+lr=1.017e-4+wd=6.19e-6; 3 trials cluster drop≈0.055-0.058,lr≈1.0-1.15e-4,wd≈6e-6; bridge found true optima → run16 narrow cluster
 575300d	0.8768	0.7787	0.8174	1	50	discard	cluster narrow(drop=[0.04,0.08],lr=[8e-5,1.3e-4],wd=[2e-6,2e-5]); all top3 same cluster≈0.8765-0.8768; plateau; → run17 test d_ffn=1536
 bcc8273	0.8782	0.7782	0.8172	23	50	keep	NEW BEST roc_s=0.87818; d_ffn=1048+bs128+drop=0.047+lr=1.114e-4+wd=3.32e-6; d_ffn=1536 not selected; cluster shifted lower-drop; → run18 narrow
+3d2d7c8	0.8784	0.7784	0.8173	35	50	keep	NEW BEST roc_s=0.87840; d_ffn=1048+bs128+drop=0.047+lr=1.066e-4+wd=3.55e-6; cluster converging drop≈0.047,lr≈1.07e-4,wd≈3.5e-6; → run19 final narrow

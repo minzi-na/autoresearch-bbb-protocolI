@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v18_cluster2"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v19_cluster3"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -93,29 +93,29 @@ P1_BEST_PARAMS = {
     "weight_decay": 1e-4,
 }
 
-# run17 trial23 new best: drop=0.047, lr=1.114e-4, wd=3.32e-6
+# run18 trial35 new best: drop=0.047, lr=1.066e-4, wd=3.55e-6
 CLUSTER_PROBE_PARAMS = {
     "d_model":      512,
     "d_ffn":        1048,
     "batch_size":   128,
-    "dropout":      0.046736550385895775,
-    "lr":           1.1141148796268672e-4,
-    "weight_decay": 3.3165916169610476e-6,
+    "dropout":      0.04655455717029762,
+    "lr":           1.0659008483038048e-4,
+    "weight_decay": 3.5528800478379304e-6,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # Cluster2: narrow around run17 trial23 new best
-    # d_ffn=1048+bs128+drop=0.047+lr=1.114e-4+wd=3.32e-6 → roc_s=0.87818
+    # Cluster3: final narrow around run18 trial35 best
+    # d_ffn=1048+bs128+drop=0.047+lr=1.066e-4+wd=3.55e-6 → roc_s=0.87840
     d_model = 512
     d_ffn   = 1048
     return {
         "d_model":      d_model,
         "d_ffn":        d_ffn,
         "batch_size":   128,
-        "dropout":      trial.suggest_float("dropout", 0.03, 0.07),
-        "lr":           trial.suggest_float("lr", 9e-5, 1.3e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1.5e-5, log=True),
+        "dropout":      trial.suggest_float("dropout", 0.03, 0.06),
+        "lr":           trial.suggest_float("lr", 9e-5, 1.2e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 2e-6, 8e-6, log=True),
         "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
