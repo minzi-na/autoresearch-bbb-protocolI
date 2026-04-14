@@ -8,3 +8,4 @@ d3fa012	0.8675	0.7788	0.8187	31	40	discard	5-seed spread[42,200,400,600,800]; P1
 eb6f5a8	0.8757	0.7786	0.8176	0	40	keep	10-seed obj; P1 best=trial0=0.8757; no trial beat it; wd=[5e-6,5e-4] searched; low-wd(1e-6) region unexplored → run9
 4232ceb	—	—	—	—	0	discard	10-seed obj (killed); setup only — wd extended to [1e-6,1e-3], low-wd probe enqueued; killed per user constraint; → run10 with 3-seed calibrated
 2a9061c	—	—	—	—	0	discard	5-seed [200,400,500,700,900] (killed); misread spec — spec allows ≤5-seed; 3-seed [42,500,800] est=0.8754 closer to target 0.8756; → run10
+2947135	0.8757	0.7786	0.8176	0	100	discard	3-seed [42,500,800] obj; trial52 obj=0.876 but reeval=0.8591 (bias -0.017); P1 best trial0 still tops at roc_s=0.8757; → run11 5-seed [200,400,500,700,900]
