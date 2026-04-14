@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v14_focus2"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v15_bridge"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -105,17 +105,17 @@ LOW_DROP_PROBE_PARAMS = {
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # Focused2: narrow around run13 trial2 new best
-    # d512+d_ffn1048+bs128+drop=0.049+lr=8.11e-5+wd=1.43e-6 → roc_s=0.87603
+    # Bridge: d_ffn=1048 fixed; span both optima (low-wd + P1-best region)
+    # low-wd: drop≈0.05, lr≈8e-5, wd≈1e-6  |  P1: drop=0.10, lr=1e-4, wd=1e-4
     d_model = 512
-    d_ffn   = trial.suggest_categorical("d_ffn",   [768, 1048])
+    d_ffn   = 1048
     return {
         "d_model":      d_model,
         "d_ffn":        d_ffn,
         "batch_size":   trial.suggest_categorical("batch_size", [128, 256]),
-        "dropout":      trial.suggest_float("dropout", 0.03, 0.10),
-        "lr":           trial.suggest_float("lr", 6e-5, 1.3e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 5e-7, 1e-5, log=True),
+        "dropout":      trial.suggest_float("dropout", 0.03, 0.12),
+        "lr":           trial.suggest_float("lr", 6e-5, 1.5e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 5e-7, 2e-4, log=True),
         "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
