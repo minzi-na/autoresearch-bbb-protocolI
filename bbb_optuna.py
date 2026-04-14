@@ -18,7 +18,7 @@ NOTE: bbb_train.py L390 has weight_decay=1e-4 hardcoded (inline, not BASE_CONFIG
   BASE_CONFIG['weight_decay']=1e-5, but actual Phase 1 training used 1e-4.
   HPO must include 1e-4 in weight_decay search range.
 
-Objective: 5-seed mean scaffold test ROC-AUC
+Objective: 10-seed mean scaffold test ROC-AUC (same as final reeval; eliminates seed-set bias)
 Reevaluation: top-3 trials → 10-seed scaffold test + external + holdout
 
 Usage:
@@ -77,11 +77,11 @@ FIXED_CONFIG = {}   # nothing fixed beyond BASE_CONFIG; all 6 params are searche
 # --------------------------------------------------------------------------
 # Optuna study config
 # --------------------------------------------------------------------------
-OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective
-N_TRIALS        = 1                           # diagnostic: P1 best config only
-TOP_K_REEVAL    = 1
+OBJECTIVE_SEEDS = SEEDS   # 10-seed objective = same as final reeval; eliminates seed-set bias
+N_TRIALS        = 40
+TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v5_diag_p1best"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v6_10seed"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -95,12 +95,18 @@ P1_BEST_PARAMS = {
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # Diagnostic: fixed P1 best config (no search)
+    d_model = trial.suggest_categorical("d_model", [384, 512])
+    d_ffn   = trial.suggest_categorical("d_ffn",   [768, 1048, 1536])
     return {
-        **P1_BEST_PARAMS,
-        "depth":      BASE_CONFIG["depth"],
-        "num_epochs": BASE_CONFIG["num_epochs"],
-        "patience":   BASE_CONFIG["patience"],
+        "d_model":      d_model,
+        "d_ffn":        d_ffn,
+        "batch_size":   trial.suggest_categorical("batch_size", [128, 256]),
+        "dropout":      trial.suggest_float("dropout", 0.05, 0.25),
+        "lr":           trial.suggest_float("lr", 5e-5, 3e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 5e-6, 5e-4, log=True),
+        "depth":        BASE_CONFIG["depth"],
+        "num_epochs":   BASE_CONFIG["num_epochs"],
+        "patience":     BASE_CONFIG["patience"],
     }
 
 
@@ -254,7 +260,7 @@ def objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims):
                 raise optuna.TrialPruned()
 
         trial.set_user_attr("objective_seeds",      OBJECTIVE_SEEDS)
-        trial.set_user_attr("objective_metric",     "5-seed scaffold test mean ROC-AUC")
+        trial.set_user_attr("objective_metric",     "10-seed scaffold test mean ROC-AUC")
         trial.set_user_attr("objective_mean_roc",   mean(aucs))
         return mean(aucs)
 
@@ -351,7 +357,9 @@ def main():
         load_if_exists=True,
     )
 
-    # Diagnostic: no enqueue needed (build_trial_config returns fixed P1 best)
+    # Warm-start: Phase 1 best config as trial 0 (TPE builds from known baseline)
+    if len(study.trials) == 0:
+        study.enqueue_trial(P1_BEST_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
