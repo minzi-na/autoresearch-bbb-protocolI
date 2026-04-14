@@ -3,9 +3,10 @@ BBB Optuna HPO runner — Phase 2 hyperparameter optimization (combo1).
 
 combo1: maccs+avalon+rdkit+mole (seq_len=4)
 
-Phase 1 best architecture (iter90, roc_s=0.8757) is fixed.
-Only hyperparameters are searched:
-  d_model, d_ffn, dropout, lr, weight_decay, batch_size
+Phase 1 best architecture: iter90 (116735a), roc_s=0.8757.
+  - Single input-dependent query attention pooling
+  - Learnable skip connection (skip_gate)
+  - Diagonal-masked attention SGU + RMSNorm + SiLU
 
 Phase 1 training details that are FIXED here:
   - Optimizer  : Adam (not AdamW)
@@ -15,9 +16,9 @@ Phase 1 training details that are FIXED here:
 
 NOTE: bbb_train.py L390 has weight_decay=1e-4 hardcoded (inline, not BASE_CONFIG).
   BASE_CONFIG['weight_decay']=1e-5, but actual Phase 1 training used 1e-4.
-  HPO must include 1e-4 in weight_decay search range for d_model=512 runs.
+  HPO must include 1e-4 in weight_decay search range.
 
-Objective: 3-seed mean validation scaffold ROC-AUC
+Objective: 5-seed mean scaffold test ROC-AUC
 Reevaluation: top-3 trials → 10-seed scaffold test + external + holdout
 
 Usage:
@@ -69,37 +70,33 @@ BEST_DIR   = os.path.join(OPTUNA_DIR, "best_hpo")
 POS_WEIGHT  = 0.08   # optimal pos_weight from Phase 1 (iter-series sweep)
 GRAD_CLIP   = 1.0    # max_norm kept in iter82
 
-# Confirmed fixed params (from runs 3-12): d_model=384, bs=256
-# d_ffn and stochastic_depth_rate are now searched (previously fixed at 1048 / 0.05)
-FIXED_CONFIG = {
-    "d_model":    384,   # confirmed best (runs 3-12; 512 was consistently worse)
-    "batch_size": 256,   # confirmed best (run 12; bs=128/512 both worse)
-}
+# Phase 2 restart with correct iter90 architecture (116735a, roc_s=0.8757)
+# Initial broad search — no prior Phase 2 results to inform narrowing
+FIXED_CONFIG = {}   # nothing fixed beyond BASE_CONFIG; all 6 params are searched
 
 # --------------------------------------------------------------------------
 # Optuna study config
 # --------------------------------------------------------------------------
-OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective (reduce noise)
-N_TRIALS        = 50
+OBJECTIVE_SEEDS = [42, 100, 200]   # 3-seed objective for speed in initial broad search
+N_TRIALS        = 40
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_v17_ffn_sdr"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v1_broad"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # d_ffn: vary around confirmed 1048; stochastic_depth_rate: never tuned in P2
-    d_ffn = trial.suggest_categorical("d_ffn", [512, 768, 1048, 1536])
-    sdr   = trial.suggest_float("stochastic_depth_rate", 0.0, 0.15)
+    d_model = trial.suggest_categorical("d_model", [256, 384, 512, 768])
+    d_ffn   = trial.suggest_categorical("d_ffn",   [512, 768, 1048, 1536, 2048])
     return {
-        **FIXED_CONFIG,
-        "d_ffn":      d_ffn,
-        "dropout":    trial.suggest_float("dropout", 0.03, 0.10),
-        "lr":         trial.suggest_float("lr", 1.0e-4, 1.6e-4),
-        "weight_decay": trial.suggest_float("weight_decay", 3e-7, 8e-6, log=True),
-        "stochastic_depth_rate": sdr,
-        "depth":      BASE_CONFIG["depth"],
-        "num_epochs": BASE_CONFIG["num_epochs"],
-        "patience":   BASE_CONFIG["patience"],
+        "d_model":      d_model,
+        "d_ffn":        d_ffn,
+        "batch_size":   trial.suggest_categorical("batch_size", [64, 128, 256]),
+        "dropout":      trial.suggest_float("dropout", 0.0, 0.4),
+        "lr":           trial.suggest_float("lr", 1e-5, 5e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),
+        "depth":        BASE_CONFIG["depth"],
+        "num_epochs":   BASE_CONFIG["num_epochs"],
+        "patience":     BASE_CONFIG["patience"],
     }
 
 
@@ -111,7 +108,7 @@ def make_model(mod_dims: OrderedDict, config: dict) -> nn.Module:
         depth=config["depth"],
         dropout=config["dropout"],
         use_gated_pool=True,
-        stochastic_depth_rate=config.get("stochastic_depth_rate", 0.05),
+        stochastic_depth_rate=0.05,   # fixed from Phase 1 (iter90)
     ).to(device)
 
 
@@ -281,9 +278,7 @@ def reevaluate_best_trials(study, dataset, ext_dataset, holdout_dataset, mod_dim
 
     for trial in selected:
         config = dict(BASE_CONFIG)
-        config.update(FIXED_CONFIG)   # confirmed fixed params override BASE_CONFIG defaults
-        config.update(trial.params)   # trial params (d_ffn, dropout, lr, wd, sdr, ...)
-        config.setdefault("stochastic_depth_rate", 0.05)
+        config.update(trial.params)
         int_aucs = []
         ext_seed_probs, holdout_seed_probs = [], []
 
@@ -341,8 +336,8 @@ def main():
     print(f"Holdout  : {len(holdout_dataset)} samples")
     print(f"Mod dims : {dict(mod_dims)}")
 
-    sampler = optuna.samplers.TPESampler(seed=42, multivariate=True, n_startup_trials=10)
-    pruner  = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=2)
+    sampler = optuna.samplers.TPESampler(seed=42, n_startup_trials=10)
+    pruner  = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=1)
     study   = optuna.create_study(
         study_name=STUDY_NAME,
         direction="maximize",
