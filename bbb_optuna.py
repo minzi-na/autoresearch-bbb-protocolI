@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v22_d768"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v23_low_drop"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -115,17 +115,17 @@ D768_PROBE_PARAMS = {
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # d_model expansion: test 768 vs 512 in cluster region
-    # 768 never tried in Phase 2; cluster: drop≈0.047, lr≈1.07e-4, wd≈3.5e-6
-    d_model = trial.suggest_categorical("d_model", [512, 768])
+    # Final: explore dropout < 0.03 (never tried); d_model=512+d_ffn=1048+bs=128 fixed
+    # Widen wd range; lr slightly widened; cluster best warm-started
+    d_model = 512
     d_ffn   = 1048
     return {
         "d_model":      d_model,
         "d_ffn":        d_ffn,
         "batch_size":   128,
-        "dropout":      trial.suggest_float("dropout", 0.035, 0.065),
-        "lr":           trial.suggest_float("lr", 8.5e-5, 1.25e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 1.5e-6, 1.2e-5, log=True),
+        "dropout":      trial.suggest_float("dropout", 0.02, 0.08),
+        "lr":           trial.suggest_float("lr", 7e-5, 1.5e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 5e-7, 2e-4, log=True),
         "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
@@ -379,10 +379,9 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: cluster best (d512) + d768 probe with same params
+    # Warm-start: cluster best only
     if len(study.trials) == 0:
         study.enqueue_trial(CLUSTER_PROBE_PARAMS)
-        study.enqueue_trial(D768_PROBE_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
