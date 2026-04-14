@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v15_bridge"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v16_cluster"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -93,29 +93,29 @@ P1_BEST_PARAMS = {
     "weight_decay": 1e-4,
 }
 
-# run13 trial2 new best: drop=0.049, lr=8.11e-5, wd=1.43e-6
-LOW_DROP_PROBE_PARAMS = {
+# run15 trial34 new best: drop=0.058, lr=1.017e-4, wd=6.19e-6
+CLUSTER_PROBE_PARAMS = {
     "d_model":      512,
     "d_ffn":        1048,
     "batch_size":   128,
-    "dropout":      0.049,
-    "lr":           8.11e-5,
-    "weight_decay": 1.43e-6,
+    "dropout":      0.05777770492473058,
+    "lr":           1.0174795203756094e-4,
+    "weight_decay": 6.189615100772342e-6,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # Bridge: d_ffn=1048 fixed; span both optima (low-wd + P1-best region)
-    # low-wd: drop≈0.05, lr≈8e-5, wd≈1e-6  |  P1: drop=0.10, lr=1e-4, wd=1e-4
+    # Cluster: narrow around run15 best cluster
+    # drop≈0.055-0.058, lr≈1.0-1.15e-4, wd≈6e-6 → roc_s=0.87683
     d_model = 512
     d_ffn   = 1048
     return {
         "d_model":      d_model,
         "d_ffn":        d_ffn,
-        "batch_size":   trial.suggest_categorical("batch_size", [128, 256]),
-        "dropout":      trial.suggest_float("dropout", 0.03, 0.12),
-        "lr":           trial.suggest_float("lr", 6e-5, 1.5e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 5e-7, 2e-4, log=True),
+        "batch_size":   128,
+        "dropout":      trial.suggest_float("dropout", 0.04, 0.08),
+        "lr":           trial.suggest_float("lr", 8e-5, 1.3e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 2e-6, 2e-5, log=True),
         "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
@@ -369,10 +369,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: P1 best + run12 trial3 best (low-drop, low-wd region)
+    # Warm-start: P1 best + run15 cluster best
     if len(study.trials) == 0:
         study.enqueue_trial(P1_BEST_PARAMS)
-        study.enqueue_trial(LOW_DROP_PROBE_PARAMS)
+        study.enqueue_trial(CLUSTER_PROBE_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)

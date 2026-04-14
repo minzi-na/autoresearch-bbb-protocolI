@@ -13,3 +13,4 @@ eb6f5a8	0.8757	0.7786	0.8176	0	40	keep	10-seed obj; P1 best=trial0=0.8757; no tr
 f2a73c9	0.8757	0.7786	0.8176	0	50	discard	narrow(d512 fixed,lr=[7e-5,2e-4],drop=[0.03,0.20]); trial3 roc_s=0.87485(best yet,gap -0.0009); d_ffn=1048,drop=0.066,lr=8.47e-5,wd=3.55e-6; → run13 focus this region
 f6353ec	0.8760	0.7786	0.8180	2	50	keep	NEW BEST: trial2 roc_s=0.87603>P1(0.8757); d512+d_ffn1048+bs128+drop=0.049+lr=8.11e-5+wd=1.43e-6; low-drop+very-low-wd region confirmed; → run14 narrow further
 6be6f90	0.8759	0.7786	0.8181	1	50	discard	focus2(drop=[0.03,0.10],lr=[6e-5,1.3e-4],wd=[5e-7,1e-5]); trial1=same params reeval=0.87587≈run13; no improvement; two optima: low-wd(0.876) vs P1(0.8757); → run15 bridge both
+7f5425a	0.8768	0.7787	0.8174	34	50	keep	NEW BEST roc_s=0.87683; d_ffn=1048+bs128+drop=0.058+lr=1.017e-4+wd=6.19e-6; 3 trials cluster drop≈0.055-0.058,lr≈1.0-1.15e-4,wd≈6e-6; bridge found true optima → run16 narrow cluster
