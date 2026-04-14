@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v16_cluster"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v17_dffn"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -105,10 +105,10 @@ CLUSTER_PROBE_PARAMS = {
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # Cluster: narrow around run15 best cluster
-    # drop≈0.055-0.058, lr≈1.0-1.15e-4, wd≈6e-6 → roc_s=0.87683
+    # d_ffn variation: test if 1536 > 1048 in low-drop cluster
+    # cluster: drop≈0.055, lr≈1.0e-4, wd≈6e-6 → roc_s=0.87683 with d_ffn=1048
     d_model = 512
-    d_ffn   = 1048
+    d_ffn   = trial.suggest_categorical("d_ffn", [1048, 1536])
     return {
         "d_model":      d_model,
         "d_ffn":        d_ffn,
