@@ -26,3 +26,5 @@ aabde14	0.8784	0.7784	0.8173	0	50	discard	final(drop=[0.02,0.08],wd=[5e-7,2e-4])
 c115767	0.8784	0.7784	0.8173	0	50	discard	wide random restart(drop=[0.02,0.15],lr=[5e-5,2.5e-4],wd=[1e-7,5e-4],n_startup=15); TPE→same cluster; no other basin; → run26 stochastic_depth_rate tuning
 f6073ef	0.8784	0.7784	0.8173	0	50	discard	sdr=[0.0,0.05,0.10,0.15]; all top3=sdr=0.05; no improvement; → run27 patience tuning
 1f17718	0.8784	0.7784	0.8173	0	50	discard	patience=[10,20,30]+num_epochs=100; patience=10 best; total_sec=1515(2x); 3 consec discard → pos_weight tuning
+0a84623	0.8785	0.7779	0.8170	44	50	keep	NEW BEST roc_s=0.87848(+0.00008,marginal); pos_weight=0.08 confirmed(all top3); trial44: drop=0.046,lr=1.102e-4,wd=3.88e-6; → run29 consolidate
+7203e6e	0.8785	0.7779	0.8170	0	50	discard	pos_weight=0.08 fixed; 3D search(drop,lr,wd); warm-start=run28best(trial0=obj0.88208); no trial beat warm-start; plateau confirmed → run30 grad_clip tuning
