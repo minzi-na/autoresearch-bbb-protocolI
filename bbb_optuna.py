@@ -75,20 +75,20 @@ FIXED_CONFIG = {
 # --------------------------------------------------------------------------
 # Optuna study config
 # --------------------------------------------------------------------------
-OBJECTIVE_SEEDS = [42, 100, 200]   # 3-seed fast objective
-N_TRIALS        = 60
+OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective (reduce noise)
+N_TRIALS        = 40
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_v8"
+STUDY_NAME      = "bbb_hpo_combo1_p2_v9"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
     return {
         **FIXED_CONFIG,                                # d_model=384 d_ffn=1048 batch_size=256
         "depth":        BASE_CONFIG["depth"],          # fixed at 4 (Phase 1)
-        "dropout":      trial.suggest_float("dropout", 0.03, 0.12),
-        "lr":           trial.suggest_float("lr",          8e-5, 1.8e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 5e-7, 8e-6, log=True),
+        "dropout":      trial.suggest_float("dropout", 0.04, 0.09),
+        "lr":           trial.suggest_float("lr",          9e-5, 1.4e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 5e-6, log=True),
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
     }
@@ -330,8 +330,8 @@ def main():
     print(f"Holdout  : {len(holdout_dataset)} samples")
     print(f"Mod dims : {dict(mod_dims)}")
 
-    sampler = optuna.samplers.CmaEsSampler(seed=42)
-    pruner  = optuna.pruners.NopPruner()   # CMA-ES requires complete trials; no pruning
+    sampler = optuna.samplers.TPESampler(seed=42, multivariate=True)
+    pruner  = optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=2)
     study   = optuna.create_study(
         study_name=STUDY_NAME,
         direction="maximize",
