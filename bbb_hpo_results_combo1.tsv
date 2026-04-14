@@ -10,3 +10,5 @@ fa72c39	0.8827	0.7763	0.8163	6	60	discard	fix+rerun; d_model=384 fixed, lr≈1.0
 2eb2c22	0.8796	0.7765	0.8164	28	40	keep	5-seed obj; lr≈1.26-1.30e-4 wd≈1.0-1.5e-6 drop≈0.049-0.058; roc_s=0.8734 > run4 0.8715 (+0.0019); 3-seed was biased to lr≈1.1e-4
 61c0f2c	0.8795	0.7763	0.8164	44	50	keep	narrow lr=1.1e-4~1.6e-4; confirmed lr≈1.29e-4 wd≈1.06e-6 drop≈0.055; roc_s=0.8734 same as run9; optimum confirmed
 4a157cb	0.8796	0.7765	0.8166	35	40	keep	batch_size=[128,256,512]; all top3=bs256; roc_s=0.8735 (+0.0001); bs=256 final confirmed
+16eff14	0.8797	0.7765	0.8164	31	40	keep	final squeeze; confirmed lr=1.273e-4 wd=9.98e-7 drop=0.056; roc_s=0.8737; d_model=384 bs=256 HPO best
+NOTE: P1 used bs=128; d_model=512+bs=128 never tested in P2 → run13 hypothesis test
