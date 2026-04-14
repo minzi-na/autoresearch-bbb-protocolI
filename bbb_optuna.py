@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v17_dffn"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v18_cluster2"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -93,29 +93,29 @@ P1_BEST_PARAMS = {
     "weight_decay": 1e-4,
 }
 
-# run15 trial34 new best: drop=0.058, lr=1.017e-4, wd=6.19e-6
+# run17 trial23 new best: drop=0.047, lr=1.114e-4, wd=3.32e-6
 CLUSTER_PROBE_PARAMS = {
     "d_model":      512,
     "d_ffn":        1048,
     "batch_size":   128,
-    "dropout":      0.05777770492473058,
-    "lr":           1.0174795203756094e-4,
-    "weight_decay": 6.189615100772342e-6,
+    "dropout":      0.046736550385895775,
+    "lr":           1.1141148796268672e-4,
+    "weight_decay": 3.3165916169610476e-6,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # d_ffn variation: test if 1536 > 1048 in low-drop cluster
-    # cluster: drop≈0.055, lr≈1.0e-4, wd≈6e-6 → roc_s=0.87683 with d_ffn=1048
+    # Cluster2: narrow around run17 trial23 new best
+    # d_ffn=1048+bs128+drop=0.047+lr=1.114e-4+wd=3.32e-6 → roc_s=0.87818
     d_model = 512
-    d_ffn   = trial.suggest_categorical("d_ffn", [1048, 1536])
+    d_ffn   = 1048
     return {
         "d_model":      d_model,
         "d_ffn":        d_ffn,
         "batch_size":   128,
-        "dropout":      trial.suggest_float("dropout", 0.04, 0.08),
-        "lr":           trial.suggest_float("lr", 8e-5, 1.3e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 2e-6, 2e-5, log=True),
+        "dropout":      trial.suggest_float("dropout", 0.03, 0.07),
+        "lr":           trial.suggest_float("lr", 9e-5, 1.3e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1.5e-5, log=True),
         "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
