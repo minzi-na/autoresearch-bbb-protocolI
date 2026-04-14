@@ -26,6 +26,7 @@ import time
 from collections import OrderedDict
 from copy import deepcopy
 
+import numpy as np
 import optuna
 import torch
 import torch.nn as nn
@@ -49,6 +50,8 @@ from bbb_train import (
     MultiModalGMLPFromFlat,
     apply_scaler,
     load_cached_dataset,
+    predict_probs,
+    roc_auc_from_probs,
 )
 
 
@@ -66,23 +69,23 @@ GRAD_CLIP   = 1.0    # max_norm kept in iter82
 # Optuna study config
 # --------------------------------------------------------------------------
 OBJECTIVE_SEEDS = [42, 100, 200]   # 3-seed fast objective
-N_TRIALS        = 40
+N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_scaffold"
+STUDY_NAME      = "bbb_hpo_combo1_p2_v3"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
     return {
-        "d_model":      trial.suggest_categorical("d_model",   [256, 384, 512, 768]),
-        "d_ffn":        trial.suggest_categorical("d_ffn",     [512, 768, 1048, 1536, 2048]),
+        "d_model":      trial.suggest_categorical("d_model",   [256, 384, 512]),
+        "d_ffn":        trial.suggest_categorical("d_ffn",     [512, 768, 1048]),
         "depth":        BASE_CONFIG["depth"],          # fixed at 4 (Phase 1)
-        "dropout":      trial.suggest_float("dropout", 0.0, 0.3),
-        "lr":           trial.suggest_float("lr",          1e-5, 5e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),
+        "dropout":      trial.suggest_float("dropout", 0.05, 0.25),
+        "lr":           trial.suggest_float("lr",          1e-4, 5e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-5, log=True),
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
-        "batch_size":   trial.suggest_categorical("batch_size", [64, 128, 256]),
+        "batch_size":   trial.suggest_categorical("batch_size", [128, 256]),
     }
 
 
@@ -139,7 +142,7 @@ def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: 
 
 
 def evaluate_seed(config: dict, dataset, ext_dataset, holdout_dataset, mod_dims,
-                  seed: int, include_external: bool):
+                  seed: int, include_external: bool, return_probs: bool = False):
     set_seed(seed)
     train_ds, val_ds, test_ds, scaler, (rd_start, rd_end), _ = split_then_normalize(
         dataset,
@@ -183,6 +186,9 @@ def evaluate_seed(config: dict, dataset, ext_dataset, holdout_dataset, mod_dims,
         )
         metrics["roc_auc_external"] = eval_model(model, ext_loader)["roc_auc"]
         metrics["roc_auc_holdout"]  = eval_model(model, holdout_loader)["roc_auc"]
+        if return_probs:
+            metrics["probs_external"] = predict_probs(model, ext_loader)
+            metrics["probs_holdout"]  = predict_probs(model, holdout_loader)
 
     del model, optimizer, train_loader, val_loader, test_loader
     if include_external:
@@ -261,7 +267,8 @@ def reevaluate_best_trials(study, dataset, ext_dataset, holdout_dataset, mod_dim
     for trial in selected:
         config = dict(BASE_CONFIG)
         config.update(trial.params)
-        int_aucs, ext_aucs, holdout_aucs = [], [], []
+        int_aucs = []
+        ext_seed_probs, holdout_seed_probs = [], []
 
         for seed in SEEDS:
             metrics = evaluate_seed(
@@ -272,18 +279,22 @@ def reevaluate_best_trials(study, dataset, ext_dataset, holdout_dataset, mod_dim
                 mod_dims=mod_dims,
                 seed=seed,
                 include_external=True,
+                return_probs=True,
             )
             int_aucs.append(metrics["roc_auc_scaffold"])
-            ext_aucs.append(metrics["roc_auc_external"])
-            holdout_aucs.append(metrics["roc_auc_holdout"])
+            ext_seed_probs.append(metrics["probs_external"])
+            holdout_seed_probs.append(metrics["probs_holdout"])
+
+        ext_ensemble_probs = np.mean(np.stack(ext_seed_probs, axis=0), axis=0)
+        holdout_ensemble_probs = np.mean(np.stack(holdout_seed_probs, axis=0), axis=0)
 
         reevaluations.append({
             "trial_number":     trial.number,
             "objective_value":  trial.value,
             "params":           trial.params,
             "roc_auc_scaffold": mean(int_aucs),
-            "roc_auc_external": mean(ext_aucs),
-            "roc_auc_holdout":  mean(holdout_aucs),
+            "roc_auc_external": roc_auc_from_probs(ext_dataset.labels, ext_ensemble_probs),
+            "roc_auc_holdout":  roc_auc_from_probs(holdout_dataset.labels, holdout_ensemble_probs),
             "n_seeds":          len(SEEDS),
         })
 
@@ -313,8 +324,8 @@ def main():
     print(f"Holdout  : {len(holdout_dataset)} samples")
     print(f"Mod dims : {dict(mod_dims)}")
 
-    sampler = optuna.samplers.TPESampler(seed=42)
-    pruner  = optuna.pruners.MedianPruner(n_startup_trials=8, n_warmup_steps=1)
+    sampler = optuna.samplers.TPESampler(seed=42, multivariate=True)
+    pruner  = optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=1)
     study   = optuna.create_study(
         study_name=STUDY_NAME,
         direction="maximize",
