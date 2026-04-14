@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v24_mvtpe_d2048"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v25_random_restart"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -115,17 +115,17 @@ D2048_PROBE_PARAMS = {
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # Multivariate TPE + d_ffn=2048: test larger FFN (1048 vs 2048) in cluster region
-    # Multivariate TPE captures correlations between drop/lr/wd better than univariate
+    # Wide restart: d_model=512+d_ffn=1048+bs=128 fixed; wide range for basin detection
+    # First 15 trials random (n_startup_trials=15), then TPE exploits
     d_model = 512
-    d_ffn   = trial.suggest_categorical("d_ffn", [1048, 2048])
+    d_ffn   = 1048
     return {
         "d_model":      d_model,
         "d_ffn":        d_ffn,
         "batch_size":   128,
-        "dropout":      trial.suggest_float("dropout", 0.03, 0.08),
-        "lr":           trial.suggest_float("lr", 8e-5, 1.3e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 2e-5, log=True),
+        "dropout":      trial.suggest_float("dropout", 0.02, 0.15),
+        "lr":           trial.suggest_float("lr", 5e-5, 2.5e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 1e-7, 5e-4, log=True),
         "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
@@ -368,7 +368,7 @@ def main():
     print(f"Holdout  : {len(holdout_dataset)} samples")
     print(f"Mod dims : {dict(mod_dims)}")
 
-    sampler = optuna.samplers.TPESampler(seed=42, n_startup_trials=10, multivariate=True)
+    sampler = optuna.samplers.TPESampler(seed=42, n_startup_trials=15)
     pruner  = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=1)
     study   = optuna.create_study(
         study_name=STUDY_NAME,
@@ -379,10 +379,9 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: cluster best (d_ffn=1048) + d_ffn=2048 probe
+    # Warm-start: cluster best only (wide random explores the rest)
     if len(study.trials) == 0:
         study.enqueue_trial(CLUSTER_PROBE_PARAMS)
-        study.enqueue_trial(D2048_PROBE_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
