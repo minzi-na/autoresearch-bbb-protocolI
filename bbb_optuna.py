@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v28_pos_weight"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v29_consolidate"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -93,42 +93,30 @@ P1_BEST_PARAMS = {
     "weight_decay": 1e-4,
 }
 
-# run18 trial35 best + pos_weight=0.08 (baseline)
+# run28 trial44 best (NEW BEST roc_s=0.87848); pos_weight=0.08 confirmed+fixed
 CLUSTER_PROBE_PARAMS = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
-    "dropout":               0.04655455717029762,
-    "lr":                    1.0659008483038048e-4,
-    "weight_decay":          3.5528800478379304e-6,
-    "pos_weight":            0.08,
+    "dropout":               0.046019393915327604,
+    "lr":                    1.1022334100107642e-4,
+    "weight_decay":          3.88007962016146e-6,
     "stochastic_depth_rate": 0.05,
 }
 
-# d_ffn=2048 probe: cluster best params with d_ffn=2048 (never tried)
-D2048_PROBE_PARAMS = {
-    "d_model":      512,
-    "d_ffn":        2048,
-    "batch_size":   128,
-    "dropout":      0.04655455717029762,
-    "lr":           1.0659008483038048e-4,
-    "weight_decay": 3.5528800478379304e-6,
-}
+# run29: pos_weight=0.08 fixed; 3D search (drop, lr, wd); warm-start from run28 trial44
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # pos_weight tuning: fixed 0.08 from Phase 1; may shift with low-dropout setting
-    d_model    = 512
-    d_ffn      = 1048
-    pos_weight = trial.suggest_categorical("pos_weight", [0.05, 0.08, 0.12, 0.15])
+    # pos_weight=0.08 confirmed optimal in run28 (all top-3 had pos_weight=0.08) → fixed
     return {
-        "d_model":               d_model,
-        "d_ffn":                 d_ffn,
+        "d_model":               512,
+        "d_ffn":                 1048,
         "batch_size":            128,
-        "dropout":               trial.suggest_float("dropout", 0.035, 0.065),
-        "lr":                    trial.suggest_float("lr", 8.5e-5, 1.25e-4, log=True),
-        "weight_decay":          trial.suggest_float("weight_decay", 1.5e-6, 1.2e-5, log=True),
-        "pos_weight":            pos_weight,
+        "dropout":               trial.suggest_float("dropout", 0.030, 0.065),
+        "lr":                    trial.suggest_float("lr", 8.5e-5, 1.35e-4, log=True),
+        "weight_decay":          trial.suggest_float("weight_decay", 2e-6, 1e-5, log=True),
+        "pos_weight":            POS_WEIGHT,
         "stochastic_depth_rate": 0.05,
         "depth":                 BASE_CONFIG["depth"],
         "num_epochs":            BASE_CONFIG["num_epochs"],
@@ -372,7 +360,7 @@ def main():
     print(f"Holdout  : {len(holdout_dataset)} samples")
     print(f"Mod dims : {dict(mod_dims)}")
 
-    sampler = optuna.samplers.TPESampler(seed=42, n_startup_trials=10)
+    sampler = optuna.samplers.TPESampler(seed=42, n_startup_trials=12)
     pruner  = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=1)
     study   = optuna.create_study(
         study_name=STUDY_NAME,
