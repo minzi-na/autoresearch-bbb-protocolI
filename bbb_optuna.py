@@ -69,32 +69,37 @@ BEST_DIR   = os.path.join(OPTUNA_DIR, "best_hpo")
 POS_WEIGHT  = 0.08   # optimal pos_weight from Phase 1 (iter-series sweep)
 GRAD_CLIP   = 1.0    # max_norm kept in iter82
 
-# Diagnostic: Phase 1 exact config — verify bbb_optuna.py eval equivalence
+# Confirmed fixed params (from runs 3-12): d_model=384, bs=256
+# d_ffn and stochastic_depth_rate are now searched (previously fixed at 1048 / 0.05)
 FIXED_CONFIG = {
-    "d_model":    512,
-    "d_ffn":      1048,
-    "batch_size": 128,
-    "dropout":    0.1,
-    "lr":         1e-4,
-    "weight_decay": 1e-4,
+    "d_model":    384,   # confirmed best (runs 3-12; 512 was consistently worse)
+    "batch_size": 256,   # confirmed best (run 12; bs=128/512 both worse)
 }
 
 # --------------------------------------------------------------------------
 # Optuna study config
 # --------------------------------------------------------------------------
 OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective (reduce noise)
-N_TRIALS        = 1
-TOP_K_REEVAL    = 1
+N_TRIALS        = 50
+TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_v16_seedfix"
+STUDY_NAME      = "bbb_hpo_combo1_p2_v17_ffn_sdr"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
+    # d_ffn: vary around confirmed 1048; stochastic_depth_rate: never tuned in P2
+    d_ffn = trial.suggest_categorical("d_ffn", [512, 768, 1048, 1536])
+    sdr   = trial.suggest_float("stochastic_depth_rate", 0.0, 0.15)
     return {
-        **FIXED_CONFIG,                                # Phase 1 exact: d512 ffn1048 bs128 drop0.1 lr1e-4 wd1e-4
-        "depth":        BASE_CONFIG["depth"],
-        "num_epochs":   BASE_CONFIG["num_epochs"],
-        "patience":     BASE_CONFIG["patience"],
+        **FIXED_CONFIG,
+        "d_ffn":      d_ffn,
+        "dropout":    trial.suggest_float("dropout", 0.03, 0.10),
+        "lr":         trial.suggest_float("lr", 1.0e-4, 1.6e-4),
+        "weight_decay": trial.suggest_float("weight_decay", 3e-7, 8e-6, log=True),
+        "stochastic_depth_rate": sdr,
+        "depth":      BASE_CONFIG["depth"],
+        "num_epochs": BASE_CONFIG["num_epochs"],
+        "patience":   BASE_CONFIG["patience"],
     }
 
 
@@ -106,7 +111,7 @@ def make_model(mod_dims: OrderedDict, config: dict) -> nn.Module:
         depth=config["depth"],
         dropout=config["dropout"],
         use_gated_pool=True,
-        stochastic_depth_rate=0.05,   # fixed from Phase 1
+        stochastic_depth_rate=config.get("stochastic_depth_rate", 0.05),
     ).to(device)
 
 
@@ -248,7 +253,7 @@ def objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims):
                 raise optuna.TrialPruned()
 
         trial.set_user_attr("objective_seeds",      OBJECTIVE_SEEDS)
-        trial.set_user_attr("objective_metric",     "3-seed scaffold test mean ROC-AUC")
+        trial.set_user_attr("objective_metric",     "5-seed scaffold test mean ROC-AUC")
         trial.set_user_attr("objective_mean_roc",   mean(aucs))
         return mean(aucs)
 
@@ -276,8 +281,9 @@ def reevaluate_best_trials(study, dataset, ext_dataset, holdout_dataset, mod_dim
 
     for trial in selected:
         config = dict(BASE_CONFIG)
-        config.update(trial.params)
-        config.update(FIXED_CONFIG)   # ensure fixed params override BASE_CONFIG
+        config.update(FIXED_CONFIG)   # confirmed fixed params override BASE_CONFIG defaults
+        config.update(trial.params)   # trial params (d_ffn, dropout, lr, wd, sdr, ...)
+        config.setdefault("stochastic_depth_rate", 0.05)
         int_aucs = []
         ext_seed_probs, holdout_seed_probs = [], []
 
@@ -335,8 +341,8 @@ def main():
     print(f"Holdout  : {len(holdout_dataset)} samples")
     print(f"Mod dims : {dict(mod_dims)}")
 
-    sampler = optuna.samplers.RandomSampler(seed=42)
-    pruner  = optuna.pruners.NopPruner()  # diagnostic: single trial, no pruning
+    sampler = optuna.samplers.TPESampler(seed=42, multivariate=True, n_startup_trials=10)
+    pruner  = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=2)
     study   = optuna.create_study(
         study_name=STUDY_NAME,
         direction="maximize",
