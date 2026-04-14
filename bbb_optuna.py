@@ -69,30 +69,30 @@ BEST_DIR   = os.path.join(OPTUNA_DIR, "best_hpo")
 POS_WEIGHT  = 0.08   # optimal pos_weight from Phase 1 (iter-series sweep)
 GRAD_CLIP   = 1.0    # max_norm kept in iter82
 
-# Run 13: test d_model=512 + batch_size=128 (Phase 1 combo, never tested in P2)
+# Diagnostic: Phase 1 exact config — verify bbb_optuna.py eval equivalence
 FIXED_CONFIG = {
     "d_model":    512,
     "d_ffn":      1048,
     "batch_size": 128,
+    "dropout":    0.1,
+    "lr":         1e-4,
+    "weight_decay": 1e-4,
 }
 
 # --------------------------------------------------------------------------
 # Optuna study config
 # --------------------------------------------------------------------------
 OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective (reduce noise)
-N_TRIALS        = 50
-TOP_K_REEVAL    = 3
+N_TRIALS        = 1
+TOP_K_REEVAL    = 1
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_v14"
+STUDY_NAME      = "bbb_hpo_combo1_p2_v15_diagnostic"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
     return {
-        **FIXED_CONFIG,                                # d_model=384 d_ffn=1048 batch_size=256
-        "depth":        BASE_CONFIG["depth"],          # fixed at 4 (Phase 1)
-        "dropout":      trial.suggest_float("dropout", 0.05, 0.20),
-        "lr":           trial.suggest_float("lr",          8e-5, 2e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 3e-5, 5e-4, log=True),
+        **FIXED_CONFIG,                                # Phase 1 exact: d512 ffn1048 bs128 drop0.1 lr1e-4 wd1e-4
+        "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
     }
@@ -334,8 +334,8 @@ def main():
     print(f"Holdout  : {len(holdout_dataset)} samples")
     print(f"Mod dims : {dict(mod_dims)}")
 
-    sampler = optuna.samplers.TPESampler(seed=42, multivariate=True)
-    pruner  = optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=2)
+    sampler = optuna.samplers.RandomSampler(seed=42)
+    pruner  = optuna.pruners.NopPruner()  # diagnostic: single trial, no pruning
     study   = optuna.create_study(
         study_name=STUDY_NAME,
         direction="maximize",

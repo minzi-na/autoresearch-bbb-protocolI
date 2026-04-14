@@ -14,3 +14,5 @@ fa72c39	0.8827	0.7763	0.8163	6	60	discard	fix+rerun; d_model=384 fixed, lr≈1.0
 NOTE: P1 used bs=128; d_model=512+bs=128 never tested in P2 → run13 hypothesis test
 58dc4b4	0.8698	0.7739	0.8112	42	50	discard	d_model=512 bs=128; wd=5e-6~2e-5 (TOO LOW); P1 actual wd=1e-4 hardcoded inline; dropout→upper bound 0.199; roc_s=0.8657
 NOTE: bbb_train.py L390 weight_decay=1e-4 hardcoded (not BASE_CONFIG 1e-5); all P2 HPO wd ranges missed this → run14
+8304168	0.8697	0.7739	0.8112	42	50	discard	wd=3e-5~5e-4 (covers 1e-4); still dropout→0.199 upper bound; roc_s=0.8656 same as run13; d_model=512+bs=128 consistently ~0.865
+NOTE: diagnostic needed — bbb_optuna.py vs bbb_train.py eval equivalence check (P1 exact config)
