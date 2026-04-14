@@ -10,3 +10,4 @@ eb6f5a8	0.8757	0.7786	0.8176	0	40	keep	10-seed obj; P1 best=trial0=0.8757; no tr
 2a9061c	—	—	—	—	0	discard	5-seed [200,400,500,700,900] (killed); misread spec — spec allows ≤5-seed; 3-seed [42,500,800] est=0.8754 closer to target 0.8756; → run10
 2947135	0.8757	0.7786	0.8176	0	100	discard	3-seed [42,500,800] obj; trial52 obj=0.876 but reeval=0.8591 (bias -0.017); P1 best trial0 still tops at roc_s=0.8757; → run11 5-seed [200,400,500,700,900]
 9ec6235	0.8757	0.7786	0.8176	0	50	discard	5-seed cal obj; P1 best trial0 obj=0.8760 reeval=0.8757; no trial beat it; TPE→d512+d_ffn768+lr≈1.4e-4 but reeval≈0.863; 3 consec discard → direction switch: narrow space
+f2a73c9	0.8757	0.7786	0.8176	0	50	discard	narrow(d512 fixed,lr=[7e-5,2e-4],drop=[0.03,0.20]); trial3 roc_s=0.87485(best yet,gap -0.0009); d_ffn=1048,drop=0.066,lr=8.47e-5,wd=3.55e-6; → run13 focus this region

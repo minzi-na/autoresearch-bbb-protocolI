@@ -81,7 +81,7 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v12_narrow"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v13_focus"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -93,29 +93,29 @@ P1_BEST_PARAMS = {
     "weight_decay": 1e-4,
 }
 
-# Wrong-arch Phase 2 best (iter93): d384+bs256+low_wd — test if wd≈1e-6 helps iter90 too
-LOW_WD_PROBE_PARAMS = {
-    "d_model":      384,
+# run12 trial3 best region: low dropout, low lr, very low wd
+LOW_DROP_PROBE_PARAMS = {
+    "d_model":      512,
     "d_ffn":        1048,
-    "batch_size":   256,
-    "dropout":      0.056,
-    "lr":           1.27e-4,
-    "weight_decay": 1e-6,
+    "batch_size":   128,
+    "dropout":      0.066,
+    "lr":           8.47e-5,
+    "weight_decay": 3.55e-6,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # Narrowed: d_model=512 only (384 consistently underperforms in reeval);
-    # lr tightened around P1 best; dropout narrowed; wd extended range kept
+    # Focused: d_model=512, d_ffn=1048 fixed (run12 trial3 best: drop≈0.066, lr≈8.5e-5, wd≈3.5e-6)
+    # dropout narrowed around low end; lr narrowed; wd pushed to very low region
     d_model = 512
-    d_ffn   = trial.suggest_categorical("d_ffn",   [768, 1048, 1536])
+    d_ffn   = trial.suggest_categorical("d_ffn",   [768, 1048])
     return {
         "d_model":      d_model,
         "d_ffn":        d_ffn,
         "batch_size":   trial.suggest_categorical("batch_size", [128, 256]),
-        "dropout":      trial.suggest_float("dropout", 0.03, 0.20),
-        "lr":           trial.suggest_float("lr", 7e-5, 2e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),
+        "dropout":      trial.suggest_float("dropout", 0.03, 0.15),
+        "lr":           trial.suggest_float("lr", 7e-5, 1.8e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 5e-4, log=True),
         "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
@@ -369,10 +369,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: P1 best + low-wd probe (wrong-arch Phase2 best region)
+    # Warm-start: P1 best + run12 trial3 best (low-drop, low-wd region)
     if len(study.trials) == 0:
         study.enqueue_trial(P1_BEST_PARAMS)
-        study.enqueue_trial(LOW_WD_PROBE_PARAMS)
+        study.enqueue_trial(LOW_DROP_PROBE_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
