@@ -86,7 +86,7 @@ OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective (reduce noise)
 N_TRIALS        = 1
 TOP_K_REEVAL    = 1
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_v15_diagnostic"
+STUDY_NAME      = "bbb_hpo_combo1_p2_v16_seedfix"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
@@ -166,6 +166,7 @@ def evaluate_seed(config: dict, dataset, ext_dataset, holdout_dataset, mod_dims,
     val_loader   = data.DataLoader(val_ds,   batch_size=bs, shuffle=False, num_workers=4)
     test_loader  = data.DataLoader(test_ds,  batch_size=bs, shuffle=False, num_workers=4)
 
+    set_seed(seed)   # reset seed before model init (matches bbb_train.py run_evaluation L376)
     model     = make_model(mod_dims, config)
     optimizer = optim.Adam(
         model.parameters(),
