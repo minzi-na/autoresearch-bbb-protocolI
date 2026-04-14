@@ -77,11 +77,11 @@ FIXED_CONFIG = {}   # nothing fixed beyond BASE_CONFIG; all 6 params are searche
 # --------------------------------------------------------------------------
 # Optuna study config
 # --------------------------------------------------------------------------
-OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective (3-seed too noisy — biases to high-dropout configs)
-N_TRIALS        = 40
-TOP_K_REEVAL    = 3
+OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective
+N_TRIALS        = 1                           # diagnostic: P1 best config only
+TOP_K_REEVAL    = 1
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v4_5seed"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v5_diag_p1best"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -95,18 +95,12 @@ P1_BEST_PARAMS = {
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    d_model = trial.suggest_categorical("d_model", [384, 512])
-    d_ffn   = trial.suggest_categorical("d_ffn",   [768, 1048, 1536])
+    # Diagnostic: fixed P1 best config (no search)
     return {
-        "d_model":      d_model,
-        "d_ffn":        d_ffn,
-        "batch_size":   trial.suggest_categorical("batch_size", [128, 256]),
-        "dropout":      trial.suggest_float("dropout", 0.05, 0.25),
-        "lr":           trial.suggest_float("lr", 5e-5, 3e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 5e-6, 5e-4, log=True),
-        "depth":        BASE_CONFIG["depth"],
-        "num_epochs":   BASE_CONFIG["num_epochs"],
-        "patience":     BASE_CONFIG["patience"],
+        **P1_BEST_PARAMS,
+        "depth":      BASE_CONFIG["depth"],
+        "num_epochs": BASE_CONFIG["num_epochs"],
+        "patience":   BASE_CONFIG["patience"],
     }
 
 
@@ -357,9 +351,7 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: Phase 1 best config as first trial (TPE builds from known baseline)
-    if len(study.trials) == 0:
-        study.enqueue_trial(P1_BEST_PARAMS)
+    # Diagnostic: no enqueue needed (build_trial_config returns fixed P1 best)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
