@@ -12,3 +12,5 @@ fa72c39	0.8827	0.7763	0.8163	6	60	discard	fix+rerun; d_model=384 fixed, lr≈1.0
 4a157cb	0.8796	0.7765	0.8166	35	40	keep	batch_size=[128,256,512]; all top3=bs256; roc_s=0.8735 (+0.0001); bs=256 final confirmed
 16eff14	0.8797	0.7765	0.8164	31	40	keep	final squeeze; confirmed lr=1.273e-4 wd=9.98e-7 drop=0.056; roc_s=0.8737; d_model=384 bs=256 HPO best
 NOTE: P1 used bs=128; d_model=512+bs=128 never tested in P2 → run13 hypothesis test
+58dc4b4	0.8698	0.7739	0.8112	42	50	discard	d_model=512 bs=128; wd=5e-6~2e-5 (TOO LOW); P1 actual wd=1e-4 hardcoded inline; dropout→upper bound 0.199; roc_s=0.8657
+NOTE: bbb_train.py L390 weight_decay=1e-4 hardcoded (not BASE_CONFIG 1e-5); all P2 HPO wd ranges missed this → run14

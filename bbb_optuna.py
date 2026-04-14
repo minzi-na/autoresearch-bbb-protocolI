@@ -13,6 +13,10 @@ Phase 1 training details that are FIXED here:
   - grad_clip  : max_norm=1.0 (kept in iter82)
   - stoch_depth: 0.05 (default in MultiModalGMLPFromFlat)
 
+NOTE: bbb_train.py L390 has weight_decay=1e-4 hardcoded (inline, not BASE_CONFIG).
+  BASE_CONFIG['weight_decay']=1e-5, but actual Phase 1 training used 1e-4.
+  HPO must include 1e-4 in weight_decay search range for d_model=512 runs.
+
 Objective: 3-seed mean validation scaffold ROC-AUC
 Reevaluation: top-3 trials → 10-seed scaffold test + external + holdout
 
@@ -79,7 +83,7 @@ OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective (reduce noise)
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_v13"
+STUDY_NAME      = "bbb_hpo_combo1_p2_v14"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
@@ -88,7 +92,7 @@ def build_trial_config(trial: optuna.Trial) -> dict:
         "depth":        BASE_CONFIG["depth"],          # fixed at 4 (Phase 1)
         "dropout":      trial.suggest_float("dropout", 0.05, 0.20),
         "lr":           trial.suggest_float("lr",          8e-5, 2e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 5e-6, 2e-5, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 3e-5, 5e-4, log=True),
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
     }
