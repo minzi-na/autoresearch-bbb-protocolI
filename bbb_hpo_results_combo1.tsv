@@ -1,1 +1,2 @@
 commit	best_val_roc	best_ext	best_holdout	best_trial	total_trials	status	description
+1991f64	0.8791	0.7742	0.8216	9	80	discard	iter90 arch restart; val objective; val-scaffold gap 0.020 (val=0.879 roc_s=0.859); study contaminated (mixed objectives); d_model=512 d_ffn=512 bs=256 lr=1.2e-5 drop=0.20
