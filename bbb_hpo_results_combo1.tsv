@@ -23,3 +23,4 @@ bcc8273	0.8782	0.7782	0.8172	23	50	keep	NEW BEST roc_s=0.87818; d_ffn=1048+bs128
 90665a3	0.8784	0.7784	0.8173	0	50	discard	d_model=[512,768]; d768 probe roc_s=0.86206(<<512); d512 still best; → run23 final: drop下限=0.02 탐색
 aabde14	0.8784	0.7784	0.8173	0	50	discard	final(drop=[0.02,0.08],wd=[5e-7,2e-4]); drop<0.03 not selected; warm-start=best(0.87840) confirmed plateau; STOP
 27ef974	0.8784	0.7784	0.8173	0	50	discard	mvTPE+d_ffn=[1048,2048]; d2048 roc_s=0.8574(<<1048); mvTPE no improvement; d_ffn=1048 confirmed; → run25 random+TPE wide restart
+c115767	0.8784	0.7784	0.8173	0	50	discard	wide random restart(drop=[0.02,0.15],lr=[5e-5,2.5e-4],wd=[1e-7,5e-4],n_startup=15); TPE→same cluster; no other basin; → run26 stochastic_depth_rate tuning
