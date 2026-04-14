@@ -65,10 +65,11 @@ BEST_DIR   = os.path.join(OPTUNA_DIR, "best_hpo")
 POS_WEIGHT  = 0.08   # optimal pos_weight from Phase 1 (iter-series sweep)
 GRAD_CLIP   = 1.0    # max_norm kept in iter82
 
-# Architecture params fixed (d_model=384, d_ffn=1048 confirmed best)
+# Architecture params fixed (all confirmed best)
 FIXED_CONFIG = {
     "d_model":    384,
     "d_ffn":      1048,
+    "batch_size": 256,
 }
 
 # --------------------------------------------------------------------------
@@ -78,19 +79,18 @@ OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective (reduce noise)
 N_TRIALS        = 40
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2_v11"
+STUDY_NAME      = "bbb_hpo_combo1_p2_v12"
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
     return {
-        **FIXED_CONFIG,                                # d_model=384 d_ffn=1048
+        **FIXED_CONFIG,                                # d_model=384 d_ffn=1048 batch_size=256
         "depth":        BASE_CONFIG["depth"],          # fixed at 4 (Phase 1)
-        "dropout":      trial.suggest_float("dropout", 0.04, 0.08),
-        "lr":           trial.suggest_float("lr",          1.1e-4, 1.6e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 7e-7, 3e-6, log=True),
+        "dropout":      trial.suggest_float("dropout", 0.047, 0.068),
+        "lr":           trial.suggest_float("lr",          1.2e-4, 1.42e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 8e-7, 1.6e-6, log=True),
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
-        "batch_size":   trial.suggest_categorical("batch_size", [128, 256, 512]),
     }
 
 
