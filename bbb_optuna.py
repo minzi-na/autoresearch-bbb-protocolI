@@ -78,10 +78,10 @@ FIXED_CONFIG = {}   # nothing fixed beyond BASE_CONFIG; all 6 params are searche
 # Optuna study config
 # --------------------------------------------------------------------------
 OBJECTIVE_SEEDS = SEEDS   # 10-seed: config-specific seed bias makes 5-seed unreliable (~22min with pruning)
-N_TRIALS        = 40
+N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v7_10seed"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v8_low_wd"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -93,6 +93,16 @@ P1_BEST_PARAMS = {
     "weight_decay": 1e-4,
 }
 
+# Wrong-arch Phase 2 best (iter93): d384+bs256+low_wd — test if wd≈1e-6 helps iter90 too
+LOW_WD_PROBE_PARAMS = {
+    "d_model":      384,
+    "d_ffn":        1048,
+    "batch_size":   256,
+    "dropout":      0.056,
+    "lr":           1.27e-4,
+    "weight_decay": 1e-6,
+}
+
 
 def build_trial_config(trial: optuna.Trial) -> dict:
     d_model = trial.suggest_categorical("d_model", [384, 512])
@@ -101,9 +111,9 @@ def build_trial_config(trial: optuna.Trial) -> dict:
         "d_model":      d_model,
         "d_ffn":        d_ffn,
         "batch_size":   trial.suggest_categorical("batch_size", [128, 256]),
-        "dropout":      trial.suggest_float("dropout", 0.05, 0.25),
+        "dropout":      trial.suggest_float("dropout", 0.03, 0.25),
         "lr":           trial.suggest_float("lr", 5e-5, 3e-4, log=True),
-        "weight_decay": trial.suggest_float("weight_decay", 5e-6, 5e-4, log=True),
+        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),  # extended to 1e-6
         "depth":        BASE_CONFIG["depth"],
         "num_epochs":   BASE_CONFIG["num_epochs"],
         "patience":     BASE_CONFIG["patience"],
@@ -357,9 +367,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: Phase 1 best config as trial 0 (TPE builds from known baseline)
+    # Warm-start: P1 best + low-wd probe (wrong-arch Phase2 best region)
     if len(study.trials) == 0:
         study.enqueue_trial(P1_BEST_PARAMS)
+        study.enqueue_trial(LOW_WD_PROBE_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
