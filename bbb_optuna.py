@@ -18,7 +18,7 @@ NOTE: bbb_train.py L390 has weight_decay=1e-4 hardcoded (inline, not BASE_CONFIG
   BASE_CONFIG['weight_decay']=1e-5, but actual Phase 1 training used 1e-4.
   HPO must include 1e-4 in weight_decay search range.
 
-Objective: 5-seed mean scaffold test ROC-AUC (calibrated subset [200,400,500,700,900]; P1-best est=0.8759)
+Objective: 3-seed mean scaffold test ROC-AUC (calibrated subset [42,500,800]; P1-best est=0.8754)
 Reevaluation: top-3 trials → 10-seed scaffold test + external + holdout
 
 Usage:
@@ -77,11 +77,11 @@ FIXED_CONFIG = {}   # nothing fixed beyond BASE_CONFIG; all 6 params are searche
 # --------------------------------------------------------------------------
 # Optuna study config
 # --------------------------------------------------------------------------
-OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0.8759≈0.8756 (per-seed data)
+OBJECTIVE_SEEDS = [42, 500, 800]  # calibrated 3-seed: P1-best mean=0.8754≈0.8756 (per-seed data; 5-seed+ prohibited)
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v9_5seed_cal"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v9_3seed_cal"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -345,7 +345,7 @@ def main():
     print("  BBB HPO Phase 2 — combo1 (maccs+avalon+rdkit+mole)")
     print("=" * 65)
     print(f"  Fixed: pos_weight={POS_WEIGHT}, grad_clip={GRAD_CLIP}, stoch_depth=0.05")
-    print(f"  Objective seeds : {OBJECTIVE_SEEDS}  (5-seed calibrated; P1-best est≈0.8759)")
+    print(f"  Objective seeds : {OBJECTIVE_SEEDS}  (3-seed calibrated; P1-best est≈0.8754)")
     print(f"  Reeval seeds    : {SEEDS}")
     print(f"  n_trials        : {N_TRIALS}")
     print()
