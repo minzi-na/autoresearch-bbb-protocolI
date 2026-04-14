@@ -18,7 +18,7 @@ NOTE: bbb_train.py L390 has weight_decay=1e-4 hardcoded (inline, not BASE_CONFIG
   BASE_CONFIG['weight_decay']=1e-5, but actual Phase 1 training used 1e-4.
   HPO must include 1e-4 in weight_decay search range.
 
-Objective: 3-seed mean scaffold test ROC-AUC
+Objective: 5-seed mean scaffold test ROC-AUC
 Reevaluation: top-3 trials → 10-seed scaffold test + external + holdout
 
 Usage:
@@ -77,11 +77,11 @@ FIXED_CONFIG = {}   # nothing fixed beyond BASE_CONFIG; all 6 params are searche
 # --------------------------------------------------------------------------
 # Optuna study config
 # --------------------------------------------------------------------------
-OBJECTIVE_SEEDS = [42, 100, 200]   # 3-seed objective for speed in initial broad search
+OBJECTIVE_SEEDS = [42, 100, 200, 300, 400]   # 5-seed objective (3-seed too noisy — biases to high-dropout configs)
 N_TRIALS        = 40
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v3_warmstart"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v4_5seed"
 
 # Phase 1 best config for warm-start enqueue
 P1_BEST_PARAMS = {
@@ -260,7 +260,7 @@ def objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims):
                 raise optuna.TrialPruned()
 
         trial.set_user_attr("objective_seeds",      OBJECTIVE_SEEDS)
-        trial.set_user_attr("objective_metric",     "3-seed scaffold test mean ROC-AUC")
+        trial.set_user_attr("objective_metric",     "5-seed scaffold test mean ROC-AUC")
         trial.set_user_attr("objective_mean_roc",   mean(aucs))
         return mean(aucs)
 
