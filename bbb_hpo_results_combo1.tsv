@@ -7,3 +7,4 @@ ae3b3f6	0.8827	0.7720	0.8097	5	60	discard	BUG: d_model/d_ffn/batch_size 미등�
 fa72c39	0.8827	0.7763	0.8163	6	60	discard	fix+rerun; d_model=384 fixed, lr≈1.04-1.06e-4 wd≈1.4-2.7e-6 drop≈0.04-0.07; roc_s=0.8710 < run4 0.8715; continuous fine-tune plateau
 6d93b22	0.8672	0.7750	0.8130	32	60	discard	d_model=512 test; wd=5e-6~5e-5; 3-seed obj=0.8672 roc_s=0.8603; d_model=512 clearly worse than 384 in HPO regime
 27cea9f	0.8838	0.7767	0.8166	46	62	discard	CMA-ES(NopPruner); lr≈1.16e-4 wd≈1.9-2.5e-6 drop≈0.053; roc_s=0.8713 ≈ run4 0.8715; plateau confirmed
+2eb2c22	0.8796	0.7765	0.8164	28	40	keep	5-seed obj; lr≈1.26-1.30e-4 wd≈1.0-1.5e-6 drop≈0.049-0.058; roc_s=0.8734 > run4 0.8715 (+0.0019); 3-seed was biased to lr≈1.1e-4
