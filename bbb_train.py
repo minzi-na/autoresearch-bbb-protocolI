@@ -235,19 +235,12 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
         self.skip_gate = nn.Parameter(torch.zeros(1))  # gate_init=0; learned convex mix of backbone + pre-backbone
-        self.modal_drop_p = 0.1  # per-modality token dropout during training
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
         tokens = [self.proj[name](chunk)
                   for name, chunk in zip(self.mod_names, chunks)]
         X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) — pre-backbone tokens
-        # Modality dropout: randomly zero entire modality tokens during training
-        if self.training and self.modal_drop_p > 0.0:
-            mask = torch.bernoulli(
-                torch.full((X0.size(0), X0.size(1), 1), 1.0 - self.modal_drop_p, device=X0.device)
-            )
-            X0 = X0 * mask
         X  = self.backbone(X0)
         gate = torch.sigmoid(self.skip_gate)
         X = (1.0 - gate) * X + gate * X0        # learned convex combination
