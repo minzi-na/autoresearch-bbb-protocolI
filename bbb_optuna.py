@@ -8,17 +8,18 @@ Phase 1 best architecture: iter90 (116735a), roc_s=0.8757.
   - Learnable skip connection (skip_gate)
   - Diagonal-masked attention SGU + RMSNorm + SiLU
 
-Phase 1 training details that are FIXED here:
-  - Optimizer  : Adam (not AdamW)
-  - pos_weight : 0.08 (tuned in Phase 1, pos_weight=0.08 was optimal)
-  - grad_clip  : max_norm=1.0 (kept in iter82)
-  - stoch_depth: 0.05 (default in MultiModalGMLPFromFlat)
+Phase 2 confirmed fixed settings:
+  - pos_weight : 0.08 (run28)
+  - grad_clip  : 1.0  (run30)
+  - stoch_depth: 0.05 (run26)
+  - label_sm   : 0.0  (run31)
+  - d_model=512, d_ffn=1048, bs=128, patience=10
 
-NOTE: bbb_train.py L390 has weight_decay=1e-4 hardcoded (inline, not BASE_CONFIG).
-  BASE_CONFIG['weight_decay']=1e-5, but actual Phase 1 training used 1e-4.
-  HPO must include 1e-4 in weight_decay search range.
+run32: AdamW vs Adam A/B test.
+  Phase 1 used Adam; AdamW decouples weight decay → may shift optimal wd.
+  Warm-start: adam baseline (best) + adamw probe (same params).
 
-Objective: 5-seed mean scaffold test ROC-AUC (calibrated subset [200,400,500,700,900]; P1-best est=0.8759)
+Objective: 5-seed mean scaffold test ROC-AUC (calibrated subset [200,400,500,700,900])
 Reevaluation: top-3 trials → 10-seed scaffold test + external + holdout
 
 Usage:
@@ -81,44 +82,35 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v31_label_smooth"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v32_adamw"
 
-# Phase 1 best config for warm-start enqueue
-P1_BEST_PARAMS = {
-    "d_model":      512,
-    "d_ffn":        1048,
-    "batch_size":   128,
-    "dropout":      0.1,
-    "lr":           1e-4,
-    "weight_decay": 1e-4,
-}
-
-# run28 trial44 best (NEW BEST roc_s=0.87848); pos_weight=0.08 confirmed+fixed
-CLUSTER_PROBE_PARAMS = {
+# run28 trial44 best (roc_s=0.87848) — adam baseline warm-start
+ADAM_PROBE_PARAMS = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
+    "optimizer":             "adam",
     "stochastic_depth_rate": 0.05,
 }
 
-# run31: label_smoothing tuning; warm-start from run28 trial44 + label_smoothing=0.0
-LS_PROBE_PARAMS = {
+# same config with AdamW — direct A/B comparison
+ADAMW_PROBE_PARAMS = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
-    "label_smoothing":       0.0,
+    "optimizer":             "adamw",
     "stochastic_depth_rate": 0.05,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # label_smoothing: never tried in combo1; try {0.0, 0.01, 0.02, 0.05}
+    # run32: AdamW vs Adam; label_smoothing=0.0 confirmed+fixed
     return {
         "d_model":               512,
         "d_ffn":                 1048,
@@ -126,7 +118,7 @@ def build_trial_config(trial: optuna.Trial) -> dict:
         "dropout":               trial.suggest_float("dropout", 0.030, 0.065),
         "lr":                    trial.suggest_float("lr", 8.5e-5, 1.35e-4, log=True),
         "weight_decay":          trial.suggest_float("weight_decay", 2e-6, 1e-5, log=True),
-        "label_smoothing":       trial.suggest_categorical("label_smoothing", [0.0, 0.01, 0.02, 0.05]),
+        "optimizer":             trial.suggest_categorical("optimizer", ["adam", "adamw"]),
         "pos_weight":            POS_WEIGHT,
         "stochastic_depth_rate": 0.05,
         "depth":                 BASE_CONFIG["depth"],
@@ -146,6 +138,15 @@ class LabelSmoothBCE(nn.Module):
         if self.epsilon > 0.0:
             targets = targets * (1.0 - self.epsilon) + 0.5 * self.epsilon
         return self._bce(logits, targets)
+
+
+def make_optimizer(model: nn.Module, config: dict) -> optim.Optimizer:
+    opt_name = config.get("optimizer", "adam").lower()
+    lr = config["lr"]
+    wd = config["weight_decay"]
+    if opt_name == "adamw":
+        return optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
+    return optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
 
 
 def make_model(mod_dims: OrderedDict, config: dict) -> nn.Module:
@@ -218,13 +219,9 @@ def evaluate_seed(config: dict, dataset, ext_dataset, holdout_dataset, mod_dims,
 
     set_seed(seed)   # reset seed before model init (matches bbb_train.py run_evaluation L376)
     model     = make_model(mod_dims, config)
-    optimizer = optim.Adam(
-        model.parameters(),
-        lr=config["lr"],
-        weight_decay=config["weight_decay"],
-    )
+    optimizer = make_optimizer(model, config)
     pos_weight_t = torch.tensor([config.get("pos_weight", POS_WEIGHT)]).to(device)
-    loss_fn      = LabelSmoothBCE(pos_weight=pos_weight_t, epsilon=config.get("label_smoothing", 0.0))
+    loss_fn      = LabelSmoothBCE(pos_weight=pos_weight_t, epsilon=0.0)
 
     model = train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config)
 
@@ -372,7 +369,8 @@ def main():
     print("=" * 65)
     print("  BBB HPO Phase 2 — combo1 (maccs+avalon+rdkit+mole)")
     print("=" * 65)
-    print(f"  Fixed: pos_weight={POS_WEIGHT}, grad_clip={GRAD_CLIP}, stoch_depth=0.05")
+    print(f"  Fixed: pos_weight={POS_WEIGHT}, grad_clip={GRAD_CLIP}, stoch_depth=0.05, label_sm=0.0")
+    print(f"  run32: AdamW vs Adam A/B test; cluster range locked")
     print(f"  Objective seeds : {OBJECTIVE_SEEDS}  (5-seed calibrated; P1-best est≈0.8759)")
     print(f"  Reeval seeds    : {SEEDS}")
     print(f"  n_trials        : {N_TRIALS}")
@@ -395,9 +393,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: run28 best + label_smoothing=0.0 (baseline for comparison)
+    # Warm-start: adam baseline (best) + adamw probe for direct A/B comparison
     if len(study.trials) == 0:
-        study.enqueue_trial(LS_PROBE_PARAMS)
+        study.enqueue_trial(ADAM_PROBE_PARAMS)
+        study.enqueue_trial(ADAMW_PROBE_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
