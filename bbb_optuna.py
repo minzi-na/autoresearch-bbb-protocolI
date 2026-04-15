@@ -82,43 +82,40 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v36_plateau"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v37_dmodel384"
 
-# run28 best (roc_s=0.87848) — constant LR baseline
-CONSTANT_LR_PROBE = {
+# run28 best (roc_s=0.87848) — d_model=512 baseline
+D512_PROBE = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
-    "use_plateau_lr":        False,
     "stochastic_depth_rate": 0.05,
 }
 
-# ReduceLROnPlateau probe — adaptive LR reduction on val_loss plateau
-PLATEAU_LR_PROBE = {
-    "d_model":               512,
+# d_model=384 probe — smaller capacity; d768 was bad, 384 unexplored
+D384_PROBE = {
+    "d_model":               384,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
-    "use_plateau_lr":        True,
     "stochastic_depth_rate": 0.05,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # run36: use_plateau_lr=[True,False]; constant LR, bs=128, Adam, val_loss ES fixed
+    # run37: d_model=[384,512]; d768 bad, 384 unexplored; constant LR, bs=128, Adam fixed
     return {
-        "d_model":               512,
+        "d_model":               trial.suggest_categorical("d_model", [384, 512]),
         "d_ffn":                 1048,
         "batch_size":            128,
         "dropout":               trial.suggest_float("dropout", 0.030, 0.065),
         "lr":                    trial.suggest_float("lr", 8.5e-5, 1.35e-4, log=True),
         "weight_decay":          trial.suggest_float("weight_decay", 2e-6, 1e-5, log=True),
-        "use_plateau_lr":        trial.suggest_categorical("use_plateau_lr", [True, False]),
         "pos_weight":            POS_WEIGHT,
         "stochastic_depth_rate": 0.05,
         "depth":                 BASE_CONFIG["depth"],
@@ -167,13 +164,6 @@ def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: 
     bad        = 0
     t_start    = time.time()
 
-    scheduler = None
-    if config.get("use_plateau_lr", False):
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=0.5, patience=3,
-            min_lr=config["lr"] * 0.01,
-        )
-
     for epoch in range(config["num_epochs"]):
         if time.time() - t_start > TIME_BUDGET:
             break
@@ -193,9 +183,6 @@ def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: 
                 x, y = x.to(device), y.to(device)
                 val_loss += loss_fn(model(x), y).item()
         val_loss /= max(len(val_loader), 1)
-
-        if scheduler is not None:
-            scheduler.step(val_loss)
 
         if val_loss < best_val:
             best_val   = val_loss
@@ -380,7 +367,7 @@ def main():
     print("  BBB HPO Phase 2 — combo1 (maccs+avalon+rdkit+mole)")
     print("=" * 65)
     print(f"  Fixed: pos_weight={POS_WEIGHT}, grad_clip={GRAD_CLIP}, stoch_depth=0.05, label_sm=0.0")
-    print(f"  run36: ReduceLROnPlateau(factor=0.5,patience_lr=3) vs constant LR")
+    print(f"  run37: d_model=[384,512]; d768 bad; 384 unexplored")
     print(f"  Objective seeds : {OBJECTIVE_SEEDS}  (5-seed calibrated; P1-best est≈0.8759)")
     print(f"  Reeval seeds    : {SEEDS}")
     print(f"  n_trials        : {N_TRIALS}")
@@ -403,10 +390,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: constant LR baseline (best) + ReduceLROnPlateau probe
+    # Warm-start: d_model=512 baseline (best) + d_model=384 probe
     if len(study.trials) == 0:
-        study.enqueue_trial(CONSTANT_LR_PROBE)
-        study.enqueue_trial(PLATEAU_LR_PROBE)
+        study.enqueue_trial(D512_PROBE)
+        study.enqueue_trial(D384_PROBE)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
