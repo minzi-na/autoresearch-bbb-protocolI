@@ -82,35 +82,35 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v35_roc_es"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v36_plateau"
 
-# run28 best (roc_s=0.87848) — val_loss ES baseline
-VAL_LOSS_ES_PROBE = {
+# run28 best (roc_s=0.87848) — constant LR baseline
+CONSTANT_LR_PROBE = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
-    "use_roc_es":            False,
+    "use_plateau_lr":        False,
     "stochastic_depth_rate": 0.05,
 }
 
-# val ROC-AUC ES probe — early stop on maximize val ROC-AUC instead of val loss
-ROC_ES_PROBE = {
+# ReduceLROnPlateau probe — adaptive LR reduction on val_loss plateau
+PLATEAU_LR_PROBE = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
-    "use_roc_es":            True,
+    "use_plateau_lr":        True,
     "stochastic_depth_rate": 0.05,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # run35: use_roc_es=[True,False]; constant LR, bs=128, Adam fixed
+    # run36: use_plateau_lr=[True,False]; constant LR, bs=128, Adam, val_loss ES fixed
     return {
         "d_model":               512,
         "d_ffn":                 1048,
@@ -118,7 +118,7 @@ def build_trial_config(trial: optuna.Trial) -> dict:
         "dropout":               trial.suggest_float("dropout", 0.030, 0.065),
         "lr":                    trial.suggest_float("lr", 8.5e-5, 1.35e-4, log=True),
         "weight_decay":          trial.suggest_float("weight_decay", 2e-6, 1e-5, log=True),
-        "use_roc_es":            trial.suggest_categorical("use_roc_es", [True, False]),
+        "use_plateau_lr":        trial.suggest_categorical("use_plateau_lr", [True, False]),
         "pos_weight":            POS_WEIGHT,
         "stochastic_depth_rate": 0.05,
         "depth":                 BASE_CONFIG["depth"],
@@ -162,11 +162,17 @@ def make_model(mod_dims: OrderedDict, config: dict) -> nn.Module:
 
 
 def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: dict):
-    use_roc_es = config.get("use_roc_es", False)
-    best_val   = -float("inf") if use_roc_es else float("inf")
+    best_val   = float("inf")
     best_state = None
     bad        = 0
     t_start    = time.time()
+
+    scheduler = None
+    if config.get("use_plateau_lr", False):
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.5, patience=3,
+            min_lr=config["lr"] * 0.01,
+        )
 
     for epoch in range(config["num_epochs"]):
         if time.time() - t_start > TIME_BUDGET:
@@ -181,20 +187,18 @@ def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: 
             optimizer.step()
 
         model.eval()
-        if use_roc_es:
-            val_metric = eval_model(model, val_loader)["roc_auc"]
-            improved   = val_metric > best_val
-        else:
-            val_loss = 0.0
-            with torch.no_grad():
-                for x, y in val_loader:
-                    x, y = x.to(device), y.to(device)
-                    val_loss += loss_fn(model(x), y).item()
-            val_metric = val_loss / max(len(val_loader), 1)
-            improved   = val_metric < best_val
+        val_loss = 0.0
+        with torch.no_grad():
+            for x, y in val_loader:
+                x, y = x.to(device), y.to(device)
+                val_loss += loss_fn(model(x), y).item()
+        val_loss /= max(len(val_loader), 1)
 
-        if improved:
-            best_val   = val_metric
+        if scheduler is not None:
+            scheduler.step(val_loss)
+
+        if val_loss < best_val:
+            best_val   = val_loss
             best_state = deepcopy(model.state_dict())
             bad        = 0
         else:
@@ -376,7 +380,7 @@ def main():
     print("  BBB HPO Phase 2 — combo1 (maccs+avalon+rdkit+mole)")
     print("=" * 65)
     print(f"  Fixed: pos_weight={POS_WEIGHT}, grad_clip={GRAD_CLIP}, stoch_depth=0.05, label_sm=0.0")
-    print(f"  run35: val ROC-AUC ES vs val loss ES; bs=128,Adam,constant-LR fixed")
+    print(f"  run36: ReduceLROnPlateau(factor=0.5,patience_lr=3) vs constant LR")
     print(f"  Objective seeds : {OBJECTIVE_SEEDS}  (5-seed calibrated; P1-best est≈0.8759)")
     print(f"  Reeval seeds    : {SEEDS}")
     print(f"  n_trials        : {N_TRIALS}")
@@ -399,10 +403,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: val_loss ES baseline (best) + val ROC-AUC ES probe
+    # Warm-start: constant LR baseline (best) + ReduceLROnPlateau probe
     if len(study.trials) == 0:
-        study.enqueue_trial(VAL_LOSS_ES_PROBE)
-        study.enqueue_trial(ROC_ES_PROBE)
+        study.enqueue_trial(CONSTANT_LR_PROBE)
+        study.enqueue_trial(PLATEAU_LR_PROBE)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)

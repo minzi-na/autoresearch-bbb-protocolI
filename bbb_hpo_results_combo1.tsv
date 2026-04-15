@@ -33,3 +33,4 @@ e6003e9	0.8785	0.7779	0.8170	0	50	discard	grad_clip={0.5,1.0,2.0,5.0}; grad_clip
 5f3c5c7	0.8821	0.7779	0.8170	1	50	discard	AdamW vs Adam A/B; trial1(adamw)=roc_s=0.87847≈trial0(adam)=0.87848; optimizer type irrelevant; → run33 bs=64 test
 dc15ccf	0.8821	0.7779	0.8170	0	50	discard	bs=[64,128]; top3 all bs=128; bs=64 never selected; bs=128 reconfirmed; → run34 cosine LR schedule
 56fa0a1	0.8821	0.7779	0.8170	0	50	discard	cosine LR; top3 all use_cosine_lr=False; constant LR confirmed; → run35 val ROC-AUC ES vs val loss ES
+f3d3146	0.8821	0.7779	0.8170	0	50	discard	val ROC-AUC ES; top3 all use_roc_es=False; val_loss ES confirmed; → run36 ReduceLROnPlateau
