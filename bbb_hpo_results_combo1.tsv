@@ -35,3 +35,4 @@ dc15ccf	0.8821	0.7779	0.8170	0	50	discard	bs=[64,128]; top3 all bs=128; bs=64 ne
 56fa0a1	0.8821	0.7779	0.8170	0	50	discard	cosine LR; top3 all use_cosine_lr=False; constant LR confirmed; → run35 val ROC-AUC ES vs val loss ES
 f3d3146	0.8821	0.7779	0.8170	0	50	discard	val ROC-AUC ES; top3 all use_roc_es=False; val_loss ES confirmed; → run36 ReduceLROnPlateau
 a5c0154	0.8821	0.7779	0.8170	0	50	discard	ReduceLROnPlateau; top3 all use_plateau_lr=False; constant LR confirmed; → run37 d_model=384 probe
+8fe1c1a	0.8821	0.7779	0.8170	0	50	discard	d_model=[384,512]; top3 all d512; d384 not selected; d512 confirmed; → run38 d_ffn=768 probe
