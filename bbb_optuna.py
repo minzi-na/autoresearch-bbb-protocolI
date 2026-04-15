@@ -82,35 +82,35 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v34_cosine"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v35_roc_es"
 
-# run28 best (roc_s=0.87848) — no-schedule baseline
-NO_COSINE_PROBE = {
+# run28 best (roc_s=0.87848) — val_loss ES baseline
+VAL_LOSS_ES_PROBE = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
-    "use_cosine_lr":         False,
+    "use_roc_es":            False,
     "stochastic_depth_rate": 0.05,
 }
 
-# cosine LR probe — CosineAnnealingLR(T_max=num_epochs, eta_min=lr*0.01)
-COSINE_PROBE = {
+# val ROC-AUC ES probe — early stop on maximize val ROC-AUC instead of val loss
+ROC_ES_PROBE = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
-    "use_cosine_lr":         True,
+    "use_roc_es":            True,
     "stochastic_depth_rate": 0.05,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # run34: use_cosine_lr=[True,False]; bs=128,optimizer=Adam fixed
+    # run35: use_roc_es=[True,False]; constant LR, bs=128, Adam fixed
     return {
         "d_model":               512,
         "d_ffn":                 1048,
@@ -118,7 +118,7 @@ def build_trial_config(trial: optuna.Trial) -> dict:
         "dropout":               trial.suggest_float("dropout", 0.030, 0.065),
         "lr":                    trial.suggest_float("lr", 8.5e-5, 1.35e-4, log=True),
         "weight_decay":          trial.suggest_float("weight_decay", 2e-6, 1e-5, log=True),
-        "use_cosine_lr":         trial.suggest_categorical("use_cosine_lr", [True, False]),
+        "use_roc_es":            trial.suggest_categorical("use_roc_es", [True, False]),
         "pos_weight":            POS_WEIGHT,
         "stochastic_depth_rate": 0.05,
         "depth":                 BASE_CONFIG["depth"],
@@ -162,18 +162,11 @@ def make_model(mod_dims: OrderedDict, config: dict) -> nn.Module:
 
 
 def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: dict):
-    best_val   = float("inf")
+    use_roc_es = config.get("use_roc_es", False)
+    best_val   = -float("inf") if use_roc_es else float("inf")
     best_state = None
     bad        = 0
     t_start    = time.time()
-
-    scheduler = None
-    if config.get("use_cosine_lr", False):
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer,
-            T_max=config["num_epochs"],
-            eta_min=config["lr"] * 0.01,
-        )
 
     for epoch in range(config["num_epochs"]):
         if time.time() - t_start > TIME_BUDGET:
@@ -187,19 +180,21 @@ def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: 
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=GRAD_CLIP)
             optimizer.step()
 
-        if scheduler is not None:
-            scheduler.step()
-
         model.eval()
-        val_loss = 0.0
-        with torch.no_grad():
-            for x, y in val_loader:
-                x, y = x.to(device), y.to(device)
-                val_loss += loss_fn(model(x), y).item()
-        val_loss /= max(len(val_loader), 1)
+        if use_roc_es:
+            val_metric = eval_model(model, val_loader)["roc_auc"]
+            improved   = val_metric > best_val
+        else:
+            val_loss = 0.0
+            with torch.no_grad():
+                for x, y in val_loader:
+                    x, y = x.to(device), y.to(device)
+                    val_loss += loss_fn(model(x), y).item()
+            val_metric = val_loss / max(len(val_loader), 1)
+            improved   = val_metric < best_val
 
-        if val_loss < best_val:
-            best_val   = val_loss
+        if improved:
+            best_val   = val_metric
             best_state = deepcopy(model.state_dict())
             bad        = 0
         else:
@@ -381,7 +376,7 @@ def main():
     print("  BBB HPO Phase 2 — combo1 (maccs+avalon+rdkit+mole)")
     print("=" * 65)
     print(f"  Fixed: pos_weight={POS_WEIGHT}, grad_clip={GRAD_CLIP}, stoch_depth=0.05, label_sm=0.0")
-    print(f"  run34: CosineAnnealingLR A/B test; bs=128,Adam fixed")
+    print(f"  run35: val ROC-AUC ES vs val loss ES; bs=128,Adam,constant-LR fixed")
     print(f"  Objective seeds : {OBJECTIVE_SEEDS}  (5-seed calibrated; P1-best est≈0.8759)")
     print(f"  Reeval seeds    : {SEEDS}")
     print(f"  n_trials        : {N_TRIALS}")
@@ -404,10 +399,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: no-schedule baseline (best) + cosine probe for direct A/B comparison
+    # Warm-start: val_loss ES baseline (best) + val ROC-AUC ES probe
     if len(study.trials) == 0:
-        study.enqueue_trial(NO_COSINE_PROBE)
-        study.enqueue_trial(COSINE_PROBE)
+        study.enqueue_trial(VAL_LOSS_ES_PROBE)
+        study.enqueue_trial(ROC_ES_PROBE)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
