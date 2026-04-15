@@ -82,40 +82,43 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v33_bs64"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v34_cosine"
 
-# run28 best (roc_s=0.87848) — bs=128 baseline
-BS128_PROBE_PARAMS = {
+# run28 best (roc_s=0.87848) — no-schedule baseline
+NO_COSINE_PROBE = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
+    "use_cosine_lr":         False,
     "stochastic_depth_rate": 0.05,
 }
 
-# bs=64 probe — smaller batch, more gradient noise, may escape plateau
-BS64_PROBE_PARAMS = {
+# cosine LR probe — CosineAnnealingLR(T_max=num_epochs, eta_min=lr*0.01)
+COSINE_PROBE = {
     "d_model":               512,
     "d_ffn":                 1048,
-    "batch_size":            64,
+    "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
+    "use_cosine_lr":         True,
     "stochastic_depth_rate": 0.05,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # run33: bs=[64,128]; optimizer=adam confirmed; label_smoothing=0.0 fixed
+    # run34: use_cosine_lr=[True,False]; bs=128,optimizer=Adam fixed
     return {
         "d_model":               512,
         "d_ffn":                 1048,
-        "batch_size":            trial.suggest_categorical("batch_size", [64, 128]),
+        "batch_size":            128,
         "dropout":               trial.suggest_float("dropout", 0.030, 0.065),
         "lr":                    trial.suggest_float("lr", 8.5e-5, 1.35e-4, log=True),
         "weight_decay":          trial.suggest_float("weight_decay", 2e-6, 1e-5, log=True),
+        "use_cosine_lr":         trial.suggest_categorical("use_cosine_lr", [True, False]),
         "pos_weight":            POS_WEIGHT,
         "stochastic_depth_rate": 0.05,
         "depth":                 BASE_CONFIG["depth"],
@@ -164,6 +167,14 @@ def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: 
     bad        = 0
     t_start    = time.time()
 
+    scheduler = None
+    if config.get("use_cosine_lr", False):
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=config["num_epochs"],
+            eta_min=config["lr"] * 0.01,
+        )
+
     for epoch in range(config["num_epochs"]):
         if time.time() - t_start > TIME_BUDGET:
             break
@@ -175,6 +186,9 @@ def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: 
             loss_fn(model(x), y).backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=GRAD_CLIP)
             optimizer.step()
+
+        if scheduler is not None:
+            scheduler.step()
 
         model.eval()
         val_loss = 0.0
@@ -367,7 +381,7 @@ def main():
     print("  BBB HPO Phase 2 — combo1 (maccs+avalon+rdkit+mole)")
     print("=" * 65)
     print(f"  Fixed: pos_weight={POS_WEIGHT}, grad_clip={GRAD_CLIP}, stoch_depth=0.05, label_sm=0.0")
-    print(f"  run33: bs=[64,128] A/B test; optimizer=Adam fixed")
+    print(f"  run34: CosineAnnealingLR A/B test; bs=128,Adam fixed")
     print(f"  Objective seeds : {OBJECTIVE_SEEDS}  (5-seed calibrated; P1-best est≈0.8759)")
     print(f"  Reeval seeds    : {SEEDS}")
     print(f"  n_trials        : {N_TRIALS}")
@@ -390,10 +404,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: bs=128 baseline (best) + bs=64 probe for direct A/B comparison
+    # Warm-start: no-schedule baseline (best) + cosine probe for direct A/B comparison
     if len(study.trials) == 0:
-        study.enqueue_trial(BS128_PROBE_PARAMS)
-        study.enqueue_trial(BS64_PROBE_PARAMS)
+        study.enqueue_trial(NO_COSINE_PROBE)
+        study.enqueue_trial(COSINE_PROBE)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)

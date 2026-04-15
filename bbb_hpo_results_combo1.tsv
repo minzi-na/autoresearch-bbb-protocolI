@@ -31,3 +31,4 @@ f6073ef	0.8784	0.7784	0.8173	0	50	discard	sdr=[0.0,0.05,0.10,0.15]; all top3=sdr
 e6003e9	0.8785	0.7779	0.8170	0	50	discard	grad_clip={0.5,1.0,2.0,5.0}; grad_clip=1.0 confirmed(warm-start stays best); 0.5/5.0 notably worse; → run31 label_smoothing
 2367363	0.8785	0.7779	0.8170	0	50	discard	label_smoothing={0.0,0.01,0.02,0.05}; 0.0 confirmed(TPE→0.0 from trial17); 0.05 notably bad(0.8462); 3 consec discard → STOP
 5f3c5c7	0.8821	0.7779	0.8170	1	50	discard	AdamW vs Adam A/B; trial1(adamw)=roc_s=0.87847≈trial0(adam)=0.87848; optimizer type irrelevant; → run33 bs=64 test
+dc15ccf	0.8821	0.7779	0.8170	0	50	discard	bs=[64,128]; top3 all bs=128; bs=64 never selected; bs=128 reconfirmed; → run34 cosine LR schedule
