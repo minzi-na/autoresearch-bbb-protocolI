@@ -37,3 +37,4 @@ f3d3146	0.8821	0.7779	0.8170	0	50	discard	val ROC-AUC ES; top3 all use_roc_es=Fa
 a5c0154	0.8821	0.7779	0.8170	0	50	discard	ReduceLROnPlateau; top3 all use_plateau_lr=False; constant LR confirmed; → run37 d_model=384 probe
 8fe1c1a	0.8821	0.7779	0.8170	0	50	discard	d_model=[384,512]; top3 all d512; d384 not selected; d512 confirmed; → run38 d_ffn=768 probe
 be81344	0.8821	0.7779	0.8170	0	50	discard	d_ffn=[768,1048]; top3 all d_ffn=1048; 768 not selected; d_ffn=1048 confirmed; → run39 10-seed obj
+4165543	0.8785	0.7779	0.8170	0	30	discard	10-seed obj; warm-start=trial0=0.87848(obj=roc_s,no bias); no trial beat it; 5-seed bias not the issue; plateau confirmed; → run40 final

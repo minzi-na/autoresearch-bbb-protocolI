@@ -78,26 +78,39 @@ FIXED_CONFIG = {}   # nothing fixed beyond BASE_CONFIG; all 6 params are searche
 # --------------------------------------------------------------------------
 # Optuna study config
 # --------------------------------------------------------------------------
-OBJECTIVE_SEEDS = SEEDS   # run39: full 10-seed objective; eliminates 5-seed bias entirely
-N_TRIALS        = 30      # 10-seed × 30 trials ≈ cost of 5-seed × 60 trials
+OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # back to calibrated 5-seed
+N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v39_10seed_obj"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v40_warmup"
 
-# run28 best (roc_s=0.87848) — warm-start probe
-BEST_PROBE = {
+# run28 best — no warmup baseline
+NO_WARMUP_PROBE = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
+    "warmup_epochs":         0,
+    "stochastic_depth_rate": 0.05,
+}
+
+# linear warmup 3 epochs + constant LR probe (not tried; warmup+cosine=bad, cosine=bad, constant=best)
+WARMUP_PROBE = {
+    "d_model":               512,
+    "d_ffn":                 1048,
+    "batch_size":            128,
+    "dropout":               0.046019393915327604,
+    "lr":                    1.1022334100107642e-4,
+    "weight_decay":          3.88007962016146e-6,
+    "warmup_epochs":         3,
     "stochastic_depth_rate": 0.05,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # run39: 10-seed obj; all fixed confirmed; cluster range
+    # run40 (final): warmup_epochs=[0,3]; constant LR confirmed best; warmup+constant untried
     return {
         "d_model":               512,
         "d_ffn":                 1048,
@@ -105,6 +118,7 @@ def build_trial_config(trial: optuna.Trial) -> dict:
         "dropout":               trial.suggest_float("dropout", 0.030, 0.065),
         "lr":                    trial.suggest_float("lr", 8.5e-5, 1.35e-4, log=True),
         "weight_decay":          trial.suggest_float("weight_decay", 2e-6, 1e-5, log=True),
+        "warmup_epochs":         trial.suggest_categorical("warmup_epochs", [0, 3]),
         "pos_weight":            POS_WEIGHT,
         "stochastic_depth_rate": 0.05,
         "depth":                 BASE_CONFIG["depth"],
@@ -153,9 +167,21 @@ def train_one_seed(model, optimizer, train_loader, val_loader, loss_fn, config: 
     bad        = 0
     t_start    = time.time()
 
+    warmup = config.get("warmup_epochs", 0)
+    base_lr = config["lr"]
+
     for epoch in range(config["num_epochs"]):
         if time.time() - t_start > TIME_BUDGET:
             break
+
+        # linear warmup: scale lr from base_lr/warmup → base_lr over warmup epochs
+        if warmup > 0 and epoch < warmup:
+            scale = (epoch + 1) / warmup
+            for pg in optimizer.param_groups:
+                pg["lr"] = base_lr * scale
+        elif warmup > 0 and epoch == warmup:
+            for pg in optimizer.param_groups:
+                pg["lr"] = base_lr
 
         model.train()
         for x, y in train_loader:
@@ -356,8 +382,8 @@ def main():
     print("  BBB HPO Phase 2 — combo1 (maccs+avalon+rdkit+mole)")
     print("=" * 65)
     print(f"  Fixed: pos_weight={POS_WEIGHT}, grad_clip={GRAD_CLIP}, stoch_depth=0.05, label_sm=0.0")
-    print(f"  run39: 10-seed objective (SEEDS); eliminates 5-seed bias; n_trials=30")
-    print(f"  Objective seeds : {OBJECTIVE_SEEDS}  (10-seed; unbiased; P1-best=0.87848)")
+    print(f"  run40 (FINAL): linear warmup [0,3 epochs] + constant LR")
+    print(f"  Objective seeds : {OBJECTIVE_SEEDS}  (5-seed calibrated)")
     print(f"  Reeval seeds    : {SEEDS}")
     print(f"  n_trials        : {N_TRIALS}")
     print()
@@ -379,9 +405,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: best known params
+    # Warm-start: no-warmup baseline (best) + warmup=3 probe
     if len(study.trials) == 0:
-        study.enqueue_trial(BEST_PROBE)
+        study.enqueue_trial(NO_WARMUP_PROBE)
+        study.enqueue_trial(WARMUP_PROBE)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
