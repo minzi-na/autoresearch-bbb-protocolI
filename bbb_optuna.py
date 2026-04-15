@@ -82,43 +82,40 @@ OBJECTIVE_SEEDS = [200, 400, 500, 700, 900]  # calibrated 5-seed: P1-best mean=0
 N_TRIALS        = 50
 TOP_K_REEVAL    = 3
 TIMEOUT         = None
-STUDY_NAME      = "bbb_hpo_combo1_p2r_v32_adamw"
+STUDY_NAME      = "bbb_hpo_combo1_p2r_v33_bs64"
 
-# run28 trial44 best (roc_s=0.87848) — adam baseline warm-start
-ADAM_PROBE_PARAMS = {
+# run28 best (roc_s=0.87848) — bs=128 baseline
+BS128_PROBE_PARAMS = {
     "d_model":               512,
     "d_ffn":                 1048,
     "batch_size":            128,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
-    "optimizer":             "adam",
     "stochastic_depth_rate": 0.05,
 }
 
-# same config with AdamW — direct A/B comparison
-ADAMW_PROBE_PARAMS = {
+# bs=64 probe — smaller batch, more gradient noise, may escape plateau
+BS64_PROBE_PARAMS = {
     "d_model":               512,
     "d_ffn":                 1048,
-    "batch_size":            128,
+    "batch_size":            64,
     "dropout":               0.046019393915327604,
     "lr":                    1.1022334100107642e-4,
     "weight_decay":          3.88007962016146e-6,
-    "optimizer":             "adamw",
     "stochastic_depth_rate": 0.05,
 }
 
 
 def build_trial_config(trial: optuna.Trial) -> dict:
-    # run32: AdamW vs Adam; label_smoothing=0.0 confirmed+fixed
+    # run33: bs=[64,128]; optimizer=adam confirmed; label_smoothing=0.0 fixed
     return {
         "d_model":               512,
         "d_ffn":                 1048,
-        "batch_size":            128,
+        "batch_size":            trial.suggest_categorical("batch_size", [64, 128]),
         "dropout":               trial.suggest_float("dropout", 0.030, 0.065),
         "lr":                    trial.suggest_float("lr", 8.5e-5, 1.35e-4, log=True),
         "weight_decay":          trial.suggest_float("weight_decay", 2e-6, 1e-5, log=True),
-        "optimizer":             trial.suggest_categorical("optimizer", ["adam", "adamw"]),
         "pos_weight":            POS_WEIGHT,
         "stochastic_depth_rate": 0.05,
         "depth":                 BASE_CONFIG["depth"],
@@ -219,7 +216,7 @@ def evaluate_seed(config: dict, dataset, ext_dataset, holdout_dataset, mod_dims,
 
     set_seed(seed)   # reset seed before model init (matches bbb_train.py run_evaluation L376)
     model     = make_model(mod_dims, config)
-    optimizer = make_optimizer(model, config)
+    optimizer = optim.Adam(model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
     pos_weight_t = torch.tensor([config.get("pos_weight", POS_WEIGHT)]).to(device)
     loss_fn      = LabelSmoothBCE(pos_weight=pos_weight_t, epsilon=0.0)
 
@@ -370,7 +367,7 @@ def main():
     print("  BBB HPO Phase 2 — combo1 (maccs+avalon+rdkit+mole)")
     print("=" * 65)
     print(f"  Fixed: pos_weight={POS_WEIGHT}, grad_clip={GRAD_CLIP}, stoch_depth=0.05, label_sm=0.0")
-    print(f"  run32: AdamW vs Adam A/B test; cluster range locked")
+    print(f"  run33: bs=[64,128] A/B test; optimizer=Adam fixed")
     print(f"  Objective seeds : {OBJECTIVE_SEEDS}  (5-seed calibrated; P1-best est≈0.8759)")
     print(f"  Reeval seeds    : {SEEDS}")
     print(f"  n_trials        : {N_TRIALS}")
@@ -393,10 +390,10 @@ def main():
         load_if_exists=True,
     )
 
-    # Warm-start: adam baseline (best) + adamw probe for direct A/B comparison
+    # Warm-start: bs=128 baseline (best) + bs=64 probe for direct A/B comparison
     if len(study.trials) == 0:
-        study.enqueue_trial(ADAM_PROBE_PARAMS)
-        study.enqueue_trial(ADAMW_PROBE_PARAMS)
+        study.enqueue_trial(BS128_PROBE_PARAMS)
+        study.enqueue_trial(BS64_PROBE_PARAMS)
 
     objective = objective_factory(dataset, ext_dataset, holdout_dataset, mod_dims)
     study.optimize(objective, n_trials=N_TRIALS, timeout=TIMEOUT)
