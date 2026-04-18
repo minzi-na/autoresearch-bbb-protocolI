@@ -135,7 +135,8 @@ class SpatialGatingUnit(nn.Module):
     def __init__(self, d_ffn, seq_len, n_heads=2):
         super().__init__()
         assert d_ffn % n_heads == 0
-        self.norm      = nn.LayerNorm(d_ffn)
+        self.norm      = nn.LayerNorm(d_ffn)  # v-branch norm
+        self.u_norm    = nn.LayerNorm(d_ffn)  # u-branch norm (gate stabilization)
         self.d_ffn     = d_ffn
         self.n_heads   = n_heads
         self.head_dim  = d_ffn // n_heads
@@ -155,6 +156,7 @@ class SpatialGatingUnit(nn.Module):
     def forward(self, x):
         u, v = x.chunk(2, dim=-1)        # (B, seq_len, d_ffn) each
         B, S, D = v.shape
+        u = self.u_norm(u)
         v = self.norm(v)
         # Multi-head self-attention gating
         Q = self.q_proj(v).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)  # (B, H, S, hd)
