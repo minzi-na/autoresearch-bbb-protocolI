@@ -247,6 +247,7 @@ class MultiModalGMLPFromFlat(nn.Module):
         self._n_fp = sum(1 for n in self.mod_names if n not in _embed_mods)
         self.em_gate = nn.Parameter(torch.tensor([0.1]))
         self.fp_gate = nn.Parameter(torch.tensor([0.1]))
+        self.em_max_gate = nn.Parameter(torch.tensor([0.1]))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -263,9 +264,10 @@ class MultiModalGMLPFromFlat(nn.Module):
         scale = X.shape[-1] ** 0.5
         scores = torch.softmax(X @ self.pool_query / scale, dim=1)  # (B, seq_len)
         Xp = (scores.unsqueeze(-1) * X).sum(dim=1)                  # (B, d_model)
-        Xp_em = X[:, self._n_fp:, :].mean(dim=1)    # mean of embed tokens (scage1, mole)
-        Xp_fp = X[:, :self._n_fp, :].mean(dim=1)   # mean of fp tokens
-        Xp = Xp + self.em_gate * Xp_em + self.fp_gate * Xp_fp  # dual group residuals
+        Xp_em = X[:, self._n_fp:, :].mean(dim=1)           # embed mean
+        Xp_em_max = X[:, self._n_fp:, :].max(dim=1).values  # embed max
+        Xp_fp = X[:, :self._n_fp, :].mean(dim=1)           # fp mean
+        Xp = Xp + self.em_gate * Xp_em + self.em_max_gate * Xp_em_max + self.fp_gate * Xp_fp
         Xp = self.drop(self.norm(Xp))
         return self.head(Xp).squeeze(-1)
 
