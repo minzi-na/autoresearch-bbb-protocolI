@@ -230,8 +230,8 @@ class MultiModalGMLPFromFlat(nn.Module):
             seq_len=self.seq_len, num_layers=depth,
         )
         self.norm = nn.LayerNorm(d_model)
-        if use_gated_pool:
-            self.alpha = nn.Parameter(torch.zeros(self.seq_len))
+        # Attention pooling: input-dependent query replaces static gated pool
+        self.pool_query = nn.Parameter(torch.zeros(d_model))
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
         self.skip_gate = nn.Parameter(torch.zeros(1))  # gate_init=0; learned convex mix of backbone + pre-backbone
@@ -244,11 +244,10 @@ class MultiModalGMLPFromFlat(nn.Module):
         X  = self.backbone(X0)
         gate = torch.sigmoid(self.skip_gate)
         X = (1.0 - gate) * X + gate * X0        # learned convex combination
-        if self.use_gated_pool:
-            w  = torch.softmax(self.alpha, dim=0)
-            Xp = (X * w.view(1, -1, 1)).sum(dim=1)
-        else:
-            Xp = X.mean(dim=1)
+        # Attention pooling: scores = softmax(X @ q / sqrt(d))
+        scale = X.shape[-1] ** 0.5
+        scores = torch.softmax(X @ self.pool_query / scale, dim=1)  # (B, seq_len)
+        Xp = (scores.unsqueeze(-1) * X).sum(dim=1)                  # (B, d_model)
         Xp = self.drop(self.norm(Xp))
         return self.head(Xp).squeeze(-1)
 
