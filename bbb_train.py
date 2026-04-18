@@ -248,6 +248,7 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.em_gate = nn.Parameter(torch.tensor([0.1]))
         self.fp_gate = nn.Parameter(torch.tensor([0.1]))
         self.em_max_gate = nn.Parameter(torch.tensor([0.1]))
+        self.std_gate = nn.Parameter(torch.tensor([0.1]))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -267,7 +268,8 @@ class MultiModalGMLPFromFlat(nn.Module):
         Xp_em = X[:, self._n_fp:, :].mean(dim=1)           # embed mean
         Xp_em_max = X[:, self._n_fp:, :].max(dim=1).values  # embed max
         Xp_fp = X[:, :self._n_fp, :].mean(dim=1)           # fp mean
-        Xp = Xp + self.em_gate * Xp_em + self.em_max_gate * Xp_em_max + self.fp_gate * Xp_fp
+        Xp_std = X.std(dim=1)                               # token std (diversity signal)
+        Xp = Xp + self.em_gate * Xp_em + self.em_max_gate * Xp_em_max + self.fp_gate * Xp_fp + self.std_gate * Xp_std
         Xp = self.drop(self.norm(Xp))
         return self.head(Xp).squeeze(-1)
 
