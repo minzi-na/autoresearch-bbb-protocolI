@@ -275,6 +275,8 @@ class MultiModalGMLPFromFlat(nn.Module):
         gate = torch.sigmoid(self.skip_gate)
         X = (1.0 - gate) * X + gate * X0        # learned convex combination
         X = X * self.token_scale.unsqueeze(0).unsqueeze(-1)  # per-position scale
+        # Normalize each token to unit norm * sqrt(d): attention weights become direction-based
+        X = F.normalize(X, dim=-1) * (X.shape[-1] ** 0.5)
         # Attention pooling: scores = softmax(X @ q / sqrt(d))
         scale = X.shape[-1] ** 0.5
         scores = torch.softmax(X @ self.pool_query / scale, dim=1)  # (B, seq_len)
