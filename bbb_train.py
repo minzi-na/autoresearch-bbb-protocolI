@@ -249,6 +249,7 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.fp_gate = nn.Parameter(torch.tensor([0.1]))
         self.em_max_gate = nn.Parameter(torch.tensor([0.1]))
         self.std_gate = nn.Parameter(torch.tensor([0.1]))
+        self.token_scale = nn.Parameter(torch.ones(self.seq_len))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -261,6 +262,7 @@ class MultiModalGMLPFromFlat(nn.Module):
         X  = self.backbone(X0)
         gate = torch.sigmoid(self.skip_gate)
         X = (1.0 - gate) * X + gate * X0        # learned convex combination
+        X = X * self.token_scale.unsqueeze(0).unsqueeze(-1)  # per-position scale
         # Attention pooling: scores = softmax(X @ q / sqrt(d))
         scale = X.shape[-1] ** 0.5
         scores = torch.softmax(X @ self.pool_query / scale, dim=1)  # (B, seq_len)
