@@ -431,6 +431,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             model.parameters(),
             lr=BASE_CONFIG['lr'],
             weight_decay=BASE_CONFIG['weight_decay'],
+            amsgrad=True,
         )
         # pos_weight: iter71: try 0.20 (tuning below 0.22)
         pos_weight = torch.tensor([0.20]).to(device)
