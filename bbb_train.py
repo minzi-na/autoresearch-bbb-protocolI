@@ -252,6 +252,8 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.token_scale = nn.Parameter(torch.ones(self.seq_len))
         # Parameter-free cross-attention: fp tokens attend to embed tokens (init=0 gate)
         self.cross_gate = nn.Parameter(torch.zeros(1))
+        # Learned dim-wise scale on em values in cross-attn (init=ones; active from start)
+        self.ca_v_scale = nn.Parameter(torch.ones(d_model))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -266,7 +268,7 @@ class MultiModalGMLPFromFlat(nn.Module):
         em_t = X0[:, self._n_fp:, :]
         scale_ca = X0.shape[-1] ** 0.5
         ca_attn = torch.softmax(fp_t @ em_t.transpose(-1, -2) / scale_ca, dim=-1)  # (B, n_fp, n_em)
-        fp_cross = ca_attn @ em_t                                                    # (B, n_fp, d)
+        fp_cross = ca_attn @ (em_t * self.ca_v_scale)                               # (B, n_fp, d)
         fp_t = fp_t + self.cross_gate * fp_cross
         X0 = torch.cat([fp_t, em_t], dim=1)
         X  = self.backbone(X0)
@@ -440,7 +442,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         lr = BASE_CONFIG['lr']
         wd = BASE_CONFIG['weight_decay']
         fast_names = {'em_gate', 'fp_gate', 'em_max_gate', 'std_gate',
-                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate'}
+                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate', 'ca_v_scale'}
         fast_params, base_params = [], []
         for name, p in model.named_parameters():
             if any(fn in name for fn in fast_names):
