@@ -254,6 +254,9 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.cross_gate = nn.Parameter(torch.zeros(1))
         # Hadamard product residual: fp_mean * em_mean (multiplicative cross-modal interaction)
         self.cross_prod_gate = nn.Parameter(torch.zeros(1))
+        # Shallow residual head: directly from X0 mean (bypasses backbone; residual_alpha init=0)
+        self.shallow_head = nn.Linear(d_model, 1, bias=False)
+        self.residual_alpha = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -286,7 +289,9 @@ class MultiModalGMLPFromFlat(nn.Module):
         Xp_cross_prod = Xp_fp * Xp_em                       # multiplicative fp x embed interaction
         Xp = Xp + self.em_gate * Xp_em + self.em_max_gate * Xp_em_max + self.fp_gate * Xp_fp + self.std_gate * Xp_std + self.cross_prod_gate * Xp_cross_prod
         Xp = self.drop(self.norm(Xp))
-        return self.head(Xp).squeeze(-1)
+        logit = self.head(Xp).squeeze(-1)
+        shallow_logit = self.shallow_head(X0.mean(dim=1)).squeeze(-1)
+        return logit + self.residual_alpha * shallow_logit
 
 
 # ---------------------------------------------------------------------------
@@ -443,7 +448,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         lr = BASE_CONFIG['lr']
         wd = BASE_CONFIG['weight_decay']
         fast_names = {'em_gate', 'fp_gate', 'em_max_gate', 'std_gate',
-                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate', 'cross_prod_gate'}
+                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate', 'cross_prod_gate', 'residual_alpha'}
         fast_params, base_params = [], []
         for name, p in model.named_parameters():
             if any(fn in name for fn in fast_names):
