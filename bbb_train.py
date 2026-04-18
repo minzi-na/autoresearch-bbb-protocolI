@@ -261,13 +261,12 @@ class MultiModalGMLPFromFlat(nn.Module):
                 chunk = self.embed_prenorm[name](chunk)
             tokens.append(self.proj[name](chunk))
         X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) — pre-backbone tokens
-        # fp tokens attend to embed tokens via L2-normalized cosine similarity
+        # fp tokens attend to embed tokens via raw dot-product (no projection weights)
         fp_t = X0[:, :self._n_fp, :]
         em_t = X0[:, self._n_fp:, :]
-        fp_n = F.normalize(fp_t, dim=-1)
-        em_n = F.normalize(em_t, dim=-1)
-        ca_attn = torch.softmax(fp_n @ em_n.transpose(-1, -2), dim=-1)  # (B, n_fp, n_em) cosine attn
-        fp_cross = ca_attn @ em_t                                          # values are raw
+        scale_ca = X0.shape[-1] ** 0.5
+        ca_attn = torch.softmax(fp_t @ em_t.transpose(-1, -2) / scale_ca, dim=-1)  # (B, n_fp, n_em)
+        fp_cross = ca_attn @ em_t                                                    # (B, n_fp, d)
         fp_t = fp_t + self.cross_gate * fp_cross
         X0 = torch.cat([fp_t, em_t], dim=1)
         X  = self.backbone(X0)
