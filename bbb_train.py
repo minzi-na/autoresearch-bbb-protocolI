@@ -225,6 +225,13 @@ class MultiModalGMLPFromFlat(nn.Module):
             name: nn.Linear(in_dim, d_model)
             for name, in_dim in zip(self.mod_names, self.mod_dims)
         })
+        # Pre-projection LN only for continuous embed modalities (not binary fps)
+        _embed_mods_set = {'scage1', 'scage2', 'mole'}
+        self.embed_prenorm = nn.ModuleDict({
+            name: nn.LayerNorm(in_dim)
+            for name, in_dim in zip(self.mod_names, self.mod_dims)
+            if name in _embed_mods_set
+        })
         self.backbone = gMLP(
             d_model=d_model, d_ffn=d_ffn,
             seq_len=self.seq_len, num_layers=depth,
@@ -243,8 +250,11 @@ class MultiModalGMLPFromFlat(nn.Module):
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
-        tokens = [self.proj[name](chunk)
-                  for name, chunk in zip(self.mod_names, chunks)]
+        tokens = []
+        for name, chunk in zip(self.mod_names, chunks):
+            if name in self.embed_prenorm:
+                chunk = self.embed_prenorm[name](chunk)
+            tokens.append(self.proj[name](chunk))
         X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) — pre-backbone tokens
         X  = self.backbone(X0)
         gate = torch.sigmoid(self.skip_gate)
