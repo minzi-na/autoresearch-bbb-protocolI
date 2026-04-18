@@ -288,22 +288,11 @@ def train_model(model, optimizer, train_loader, val_loader, loss_fn,
     bad        = 0
     t_start    = time.time()
 
-    _warmup_epochs = 3
-    _base_lrs = [pg['lr'] for pg in optimizer.param_groups]
-
     for epoch in range(num_epochs):
         elapsed = time.time() - t_start
         if elapsed > TIME_BUDGET:
             print(f'    [timeout] TIME_BUDGET={TIME_BUDGET}s exceeded at epoch {epoch} ({elapsed:.1f}s elapsed)')
             break
-
-        if epoch < _warmup_epochs:
-            scale = (epoch + 1) / _warmup_epochs
-            for pg, base_lr in zip(optimizer.param_groups, _base_lrs):
-                pg['lr'] = base_lr * scale
-        elif epoch == _warmup_epochs:
-            for pg, base_lr in zip(optimizer.param_groups, _base_lrs):
-                pg['lr'] = base_lr
 
         model.train()
         for x, y in train_loader:
