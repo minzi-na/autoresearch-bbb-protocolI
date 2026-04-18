@@ -235,6 +235,10 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
         self.skip_gate = nn.Parameter(torch.zeros(1))  # gate_init=0; learned convex mix of backbone + pre-backbone
+        # Embed-residual: direct embed token mean added to pooled output (init 0.1 to avoid zero-init trap)
+        _embed_mods = {'scage1', 'scage2', 'mole'}
+        self._n_fp = sum(1 for n in self.mod_names if n not in _embed_mods)
+        self.em_gate = nn.Parameter(torch.tensor([0.1]))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -248,6 +252,8 @@ class MultiModalGMLPFromFlat(nn.Module):
         scale = X.shape[-1] ** 0.5
         scores = torch.softmax(X @ self.pool_query / scale, dim=1)  # (B, seq_len)
         Xp = (scores.unsqueeze(-1) * X).sum(dim=1)                  # (B, d_model)
+        Xp_em = X[:, self._n_fp:, :].mean(dim=1)  # mean of embed tokens (scage1, mole)
+        Xp = Xp + self.em_gate * Xp_em              # embed residual with learnable scale
         Xp = self.drop(self.norm(Xp))
         return self.head(Xp).squeeze(-1)
 
