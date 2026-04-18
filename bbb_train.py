@@ -250,8 +250,9 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.em_max_gate = nn.Parameter(torch.tensor([0.1]))
         self.std_gate = nn.Parameter(torch.tensor([0.1]))
         self.token_scale = nn.Parameter(torch.ones(self.seq_len))
-        # Parameter-free cross-attention: fp tokens attend to embed tokens (init=0 gate)
+        # Parameter-free cross-attention: fp→embed and embed→fp (init=0 gates)
         self.cross_gate = nn.Parameter(torch.zeros(1))
+        self.em_cross_gate = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -261,13 +262,14 @@ class MultiModalGMLPFromFlat(nn.Module):
                 chunk = self.embed_prenorm[name](chunk)
             tokens.append(self.proj[name](chunk))
         X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) — pre-backbone tokens
-        # fp tokens attend to embed tokens via raw dot-product (no projection weights)
+        # Bidirectional cross-attention: fp→embed and embed→fp (no projection weights)
         fp_t = X0[:, :self._n_fp, :]
         em_t = X0[:, self._n_fp:, :]
         scale_ca = X0.shape[-1] ** 0.5
-        ca_attn = torch.softmax(fp_t @ em_t.transpose(-1, -2) / scale_ca, dim=-1)  # (B, n_fp, n_em)
-        fp_cross = ca_attn @ em_t                                                    # (B, n_fp, d)
-        fp_t = fp_t + self.cross_gate * fp_cross
+        fp_ca_attn = torch.softmax(fp_t @ em_t.transpose(-1, -2) / scale_ca, dim=-1)  # (B, n_fp, n_em)
+        fp_t = fp_t + self.cross_gate * (fp_ca_attn @ em_t)
+        em_ca_attn = torch.softmax(em_t @ fp_t.transpose(-1, -2) / scale_ca, dim=-1)  # (B, n_em, n_fp)
+        em_t = em_t + self.em_cross_gate * (em_ca_attn @ fp_t)
         X0 = torch.cat([fp_t, em_t], dim=1)
         X  = self.backbone(X0)
         gate = torch.sigmoid(self.skip_gate)
@@ -440,7 +442,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         lr = BASE_CONFIG['lr']
         wd = BASE_CONFIG['weight_decay']
         fast_names = {'em_gate', 'fp_gate', 'em_max_gate', 'std_gate',
-                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate'}
+                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate', 'em_cross_gate'}
         fast_params, base_params = [], []
         for name, p in model.named_parameters():
             if any(fn in name for fn in fast_names):
