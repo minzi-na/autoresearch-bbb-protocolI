@@ -449,7 +449,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
                 base_params.append(p)
         optimizer = optim.Adam(
             [{'params': base_params, 'lr': lr},
-             {'params': fast_params, 'lr': lr * 1.3}],
+             {'params': fast_params, 'lr': lr * 1.2}],
             weight_decay=wd,
             amsgrad=True,
         )
