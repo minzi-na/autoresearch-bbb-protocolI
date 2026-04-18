@@ -252,6 +252,8 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.token_scale = nn.Parameter(torch.ones(self.seq_len))
         # Parameter-free cross-attention: fp tokens attend to embed tokens (init=0 gate)
         self.cross_gate = nn.Parameter(torch.zeros(1))
+        # Embed-guided dynamic fp pool: embed mean as query to select fp tokens (init=0)
+        self.dyn_fp_gate = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -281,7 +283,11 @@ class MultiModalGMLPFromFlat(nn.Module):
         Xp_em_max = X[:, self._n_fp:, :].max(dim=1).values  # embed max
         Xp_fp = X[:, :self._n_fp, :].mean(dim=1)           # fp mean
         Xp_std = X.std(dim=1)                               # token std (diversity signal)
-        Xp = Xp + self.em_gate * Xp_em + self.em_max_gate * Xp_em_max + self.fp_gate * Xp_fp + self.std_gate * Xp_std
+        # Embed-guided dynamic fp pool: embed mean selects which fp tokens to emphasize
+        fp_x = X[:, :self._n_fp, :]
+        dyn_scores = torch.softmax(fp_x @ Xp_em.unsqueeze(-1) / scale, dim=1).squeeze(-1)  # (B, n_fp)
+        Xp_dyn_fp = (dyn_scores.unsqueeze(-1) * fp_x).sum(dim=1)  # (B, d)
+        Xp = Xp + self.em_gate * Xp_em + self.em_max_gate * Xp_em_max + self.fp_gate * Xp_fp + self.std_gate * Xp_std + self.dyn_fp_gate * Xp_dyn_fp
         Xp = self.drop(self.norm(Xp))
         return self.head(Xp).squeeze(-1)
 
@@ -440,7 +446,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         lr = BASE_CONFIG['lr']
         wd = BASE_CONFIG['weight_decay']
         fast_names = {'em_gate', 'fp_gate', 'em_max_gate', 'std_gate',
-                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate'}
+                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate', 'dyn_fp_gate'}
         fast_params, base_params = [], []
         for name, p in model.named_parameters():
             if any(fn in name for fn in fast_names):
