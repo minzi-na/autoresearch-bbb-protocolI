@@ -251,7 +251,7 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.std_gate = nn.Parameter(torch.tensor([0.1]))
         self.token_scale = nn.Parameter(torch.ones(self.seq_len))
         # Parameter-free cross-attention: fp tokens attend to embed tokens (init=0 gate)
-        self.cross_gate = nn.Parameter(torch.tensor([0.1]))
+        self.cross_gate = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
