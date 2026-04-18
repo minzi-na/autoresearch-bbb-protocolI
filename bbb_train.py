@@ -145,9 +145,8 @@ class SpatialGatingUnit(nn.Module):
         self.k_proj    = nn.Linear(d_ffn, d_ffn)
         self.v_proj    = nn.Linear(d_ffn, d_ffn)
         self.attn_drop = nn.Dropout(p=0.1)
-        # Learnable diagonal bias: shape (seq_len, seq_len), init to 0
-        # At softmax, this adds a learned locality prior to attention logits
-        self.diag_bias = nn.Parameter(torch.zeros(seq_len, seq_len))
+        # Per-head diagonal bias: each head learns distinct locality prior
+        self.diag_bias = nn.Parameter(torch.zeros(n_heads, seq_len, seq_len))
         # Init near-identity for stable start
         nn.init.eye_(self.v_proj.weight)
         nn.init.zeros_(self.v_proj.bias)
@@ -162,8 +161,8 @@ class SpatialGatingUnit(nn.Module):
         V = self.v_proj(v).view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
         scale = self.head_dim ** 0.5
         logits = Q @ K.transpose(-1, -2) / scale  # (B, H, S, S)
-        # Add learnable diagonal bias (broadcast over batch and heads)
-        logits = logits + self.diag_bias.unsqueeze(0).unsqueeze(0)
+        # Add per-head diagonal bias (broadcast over batch)
+        logits = logits + self.diag_bias.unsqueeze(0)
         attn = torch.softmax(logits, dim=-1)  # (B, H, S, S)
         attn = self.attn_drop(attn)
         v_out = (attn @ V).transpose(1, 2).contiguous().view(B, S, D)  # (B, S, d_ffn)
