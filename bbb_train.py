@@ -210,13 +210,6 @@ class gMLP(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-    def forward_all_layers(self, x):
-        outputs = []
-        for block in self.model:
-            x = block(x)
-            outputs.append(x)
-        return outputs
-
 
 class MultiModalGMLPFromFlat(nn.Module):
     def __init__(self, mod_dims: OrderedDict,
@@ -243,8 +236,6 @@ class MultiModalGMLPFromFlat(nn.Module):
             d_model=d_model, d_ffn=d_ffn,
             seq_len=self.seq_len, num_layers=depth,
         )
-        # Learnable layer aggregation: softmax weights over all backbone layer outputs
-        self.layer_weights = nn.Parameter(torch.zeros(depth))  # softmax → uniform at init
         self.norm = nn.LayerNorm(d_model)
         # Attention pooling: input-dependent query replaces static gated pool
         self.pool_query = nn.Parameter(torch.zeros(d_model))
@@ -268,9 +259,7 @@ class MultiModalGMLPFromFlat(nn.Module):
                 chunk = self.embed_prenorm[name](chunk)
             tokens.append(self.proj[name](chunk))
         X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) — pre-backbone tokens
-        layer_outs = self.backbone.forward_all_layers(X0)
-        lw = torch.softmax(self.layer_weights, dim=0)  # (depth,)
-        X = sum(w * lo for w, lo in zip(lw, layer_outs))
+        X  = self.backbone(X0)
         gate = torch.sigmoid(self.skip_gate)
         X = (1.0 - gate) * X + gate * X0        # learned convex combination
         X = X * self.token_scale.unsqueeze(0).unsqueeze(-1)  # per-position scale
@@ -441,7 +430,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         lr = BASE_CONFIG['lr']
         wd = BASE_CONFIG['weight_decay']
         fast_names = {'em_gate', 'fp_gate', 'em_max_gate', 'std_gate',
-                      'token_scale', 'skip_gate', 'pool_query', 'layer_weights'}
+                      'token_scale', 'skip_gate', 'pool_query'}
         fast_params, base_params = [], []
         for name, p in model.named_parameters():
             if any(fn in name for fn in fast_names):
