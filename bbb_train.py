@@ -197,18 +197,38 @@ class gMLPBlock(nn.Module):
 
 class gMLP(nn.Module):
     def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4,
-                 drop_path_prob=0.1):
+                 drop_path_prob=0.1, n_fp=0):
         super().__init__()
+        self.n_fp = n_fp
+        self._d_model = d_model
         # Linearly increase drop_path_prob from 0 to drop_path_prob across layers
         dpr = [drop_path_prob * i / max(num_layers - 1, 1)
                for i in range(num_layers)]
-        self.model = nn.Sequential(
-            *[gMLPBlock(d_model, d_ffn, seq_len, drop_path_prob=dpr[i])
-              for i in range(num_layers)]
+        self.model = nn.ModuleList(
+            [gMLPBlock(d_model, d_ffn, seq_len, drop_path_prob=dpr[i])
+             for i in range(num_layers)]
+        )
+        # Inter-layer fp→em cross-attention gates (zero-init; applied after each block)
+        self.inter_cross_gates = nn.ParameterList(
+            [nn.Parameter(torch.zeros(1)) for _ in range(num_layers)]
         )
 
     def forward(self, x):
-        return self.model(x)
+        if self.n_fp == 0 or self.n_fp >= x.shape[1]:
+            for block in self.model:
+                x = block(x)
+            return x
+        scale = self._d_model ** 0.5
+        for block, gate in zip(self.model, self.inter_cross_gates):
+            x = block(x)
+            # fp tokens attend to em tokens after each backbone block
+            fp_t = x[:, :self.n_fp, :]
+            em_t = x[:, self.n_fp:, :]
+            ca_attn = torch.softmax(fp_t @ em_t.transpose(-1, -2) / scale, dim=-1)
+            fp_cross = ca_attn @ em_t
+            fp_t = fp_t + gate * fp_cross
+            x = torch.cat([fp_t, em_t], dim=1)
+        return x
 
 
 class MultiModalGMLPFromFlat(nn.Module):
@@ -232,9 +252,12 @@ class MultiModalGMLPFromFlat(nn.Module):
             for name, in_dim in zip(self.mod_names, self.mod_dims)
             if name in _embed_mods_set
         })
+        # Compute _n_fp before backbone (needed for inter-layer cross-attention)
+        self._n_fp = sum(1 for n in self.mod_names if n not in _embed_mods_set)
         self.backbone = gMLP(
             d_model=d_model, d_ffn=d_ffn,
             seq_len=self.seq_len, num_layers=depth,
+            n_fp=self._n_fp,
         )
         self.norm = nn.LayerNorm(d_model)
         # Attention pooling: input-dependent query replaces static gated pool
@@ -242,9 +265,6 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
         self.skip_gate = nn.Parameter(torch.zeros(1))  # gate_init=0; learned convex mix of backbone + pre-backbone
-        # Dual-residual: embed and fp token means added to pooled output (init 0.1 each)
-        _embed_mods = {'scage1', 'scage2', 'mole'}
-        self._n_fp = sum(1 for n in self.mod_names if n not in _embed_mods)
         self.em_gate = nn.Parameter(torch.tensor([0.1]))
         self.fp_gate = nn.Parameter(torch.tensor([0.1]))
         self.em_max_gate = nn.Parameter(torch.tensor([0.1]))
