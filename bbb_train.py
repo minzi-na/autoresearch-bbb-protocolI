@@ -237,7 +237,9 @@ class MultiModalGMLPFromFlat(nn.Module):
             seq_len=self.seq_len, num_layers=depth,
         )
         self.norm = nn.LayerNorm(d_model)
-        # Attention pooling: input-dependent query replaces static gated pool
+        # Attention pooling: separate key projection (eye_ init; learns independent key space)
+        self.pool_key_proj = nn.Linear(d_model, d_model, bias=False)
+        nn.init.eye_(self.pool_key_proj.weight)
         self.pool_query = nn.Parameter(torch.zeros(d_model))
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
@@ -263,10 +265,11 @@ class MultiModalGMLPFromFlat(nn.Module):
         gate = torch.sigmoid(self.skip_gate)
         X = (1.0 - gate) * X + gate * X0        # learned convex combination
         X = X * self.token_scale.unsqueeze(0).unsqueeze(-1)  # per-position scale
-        # Attention pooling: scores = softmax(X @ q / sqrt(d))
+        # Attention pooling: separate key projection from values
         scale = X.shape[-1] ** 0.5
-        scores = torch.softmax(X @ self.pool_query / scale, dim=1)  # (B, seq_len)
-        Xp = (scores.unsqueeze(-1) * X).sum(dim=1)                  # (B, d_model)
+        Xk = self.pool_key_proj(X)                          # key space (eye_ init)
+        scores = torch.softmax(Xk @ self.pool_query / scale, dim=1)  # (B, seq_len)
+        Xp = (scores.unsqueeze(-1) * X).sum(dim=1)                   # values are raw X
         Xp_em = X[:, self._n_fp:, :].mean(dim=1)           # embed mean
         Xp_em_max = X[:, self._n_fp:, :].max(dim=1).values  # embed max
         Xp_fp = X[:, :self._n_fp, :].mean(dim=1)           # fp mean
