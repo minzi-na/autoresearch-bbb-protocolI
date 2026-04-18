@@ -239,6 +239,7 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         # Attention pooling: input-dependent query replaces static gated pool
         self.pool_query = nn.Parameter(torch.zeros(d_model))
+        self.pool_bias = nn.Parameter(torch.zeros(self.seq_len))  # per-position attention bias
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
         self.skip_gate = nn.Parameter(torch.zeros(1))  # gate_init=0; learned convex mix of backbone + pre-backbone
@@ -265,7 +266,7 @@ class MultiModalGMLPFromFlat(nn.Module):
         X = X * self.token_scale.unsqueeze(0).unsqueeze(-1)  # per-position scale
         # Attention pooling: scores = softmax(X @ q / sqrt(d))
         scale = X.shape[-1] ** 0.5
-        scores = torch.softmax(X @ self.pool_query / scale, dim=1)  # (B, seq_len)
+        scores = torch.softmax(X @ self.pool_query / scale + self.pool_bias, dim=1)  # (B, seq_len)
         Xp = (scores.unsqueeze(-1) * X).sum(dim=1)                  # (B, d_model)
         Xp_em = X[:, self._n_fp:, :].mean(dim=1)           # embed mean
         Xp_em_max = X[:, self._n_fp:, :].max(dim=1).values  # embed max
@@ -430,7 +431,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         lr = BASE_CONFIG['lr']
         wd = BASE_CONFIG['weight_decay']
         fast_names = {'em_gate', 'fp_gate', 'em_max_gate', 'std_gate',
-                      'token_scale', 'skip_gate', 'pool_query'}
+                      'token_scale', 'skip_gate', 'pool_query', 'pool_bias'}
         fast_params, base_params = [], []
         for name, p in model.named_parameters():
             if any(fn in name for fn in fast_names):
