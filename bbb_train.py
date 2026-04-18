@@ -427,10 +427,20 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             use_gated_pool=True,
         ).to(device)
 
+        lr = BASE_CONFIG['lr']
+        wd = BASE_CONFIG['weight_decay']
+        fast_names = {'em_gate', 'fp_gate', 'em_max_gate', 'std_gate',
+                      'token_scale', 'skip_gate', 'pool_query'}
+        fast_params, base_params = [], []
+        for name, p in model.named_parameters():
+            if any(fn in name for fn in fast_names):
+                fast_params.append(p)
+            else:
+                base_params.append(p)
         optimizer = optim.Adam(
-            model.parameters(),
-            lr=BASE_CONFIG['lr'],
-            weight_decay=BASE_CONFIG['weight_decay'],
+            [{'params': base_params, 'lr': lr},
+             {'params': fast_params, 'lr': lr * 2}],
+            weight_decay=wd,
             amsgrad=True,
         )
         # pos_weight: iter71: try 0.20 (tuning below 0.22)
