@@ -252,6 +252,8 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.token_scale = nn.Parameter(torch.ones(self.seq_len))
         # Parameter-free cross-attention: fp tokens attend to embed tokens (init=0 gate)
         self.cross_gate = nn.Parameter(torch.zeros(1))
+        # Post-backbone cross-attention: embed tokens attend to fp tokens (init=0 gate)
+        self.post_cross_gate = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -273,6 +275,13 @@ class MultiModalGMLPFromFlat(nn.Module):
         gate = torch.sigmoid(self.skip_gate)
         X = (1.0 - gate) * X + gate * X0        # learned convex combination
         X = X * self.token_scale.unsqueeze(0).unsqueeze(-1)  # per-position scale
+        # Post-backbone embed->fp cross-attention
+        fp_post = X[:, :self._n_fp, :]
+        em_post = X[:, self._n_fp:, :]
+        scale_ca2 = X.shape[-1] ** 0.5
+        em_ca = torch.softmax(em_post @ fp_post.transpose(-1, -2) / scale_ca2, dim=-1)  # (B, n_em, n_fp)
+        em_post = em_post + self.post_cross_gate * (em_ca @ fp_post)
+        X = torch.cat([fp_post, em_post], dim=1)
         # Attention pooling: scores = softmax(X @ q / sqrt(d))
         scale = X.shape[-1] ** 0.5
         scores = torch.softmax(X @ self.pool_query / scale, dim=1)  # (B, seq_len)
@@ -440,7 +449,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         lr = BASE_CONFIG['lr']
         wd = BASE_CONFIG['weight_decay']
         fast_names = {'em_gate', 'fp_gate', 'em_max_gate', 'std_gate',
-                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate'}
+                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate', 'post_cross_gate'}
         fast_params, base_params = [], []
         for name, p in model.named_parameters():
             if any(fn in name for fn in fast_names):
