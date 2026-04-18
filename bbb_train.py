@@ -252,10 +252,8 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.token_scale = nn.Parameter(torch.ones(self.seq_len))
         # Parameter-free cross-attention: fp tokens attend to embed tokens (init=0 gate)
         self.cross_gate = nn.Parameter(torch.zeros(1))
-        # Dedicated fp group attention pool (learns which fp modality is most relevant)
-        d_model = self.proj[self.mod_names[0]].out_features
-        self.fp_pool_query2 = nn.Parameter(torch.zeros(d_model))
-        self.fp_pool_gate2 = nn.Parameter(torch.zeros(1))
+        # Hadamard product residual: fp_mean * em_mean (multiplicative cross-modal interaction)
+        self.cross_prod_gate = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -285,11 +283,8 @@ class MultiModalGMLPFromFlat(nn.Module):
         Xp_em_max = X[:, self._n_fp:, :].max(dim=1).values  # embed max
         Xp_fp = X[:, :self._n_fp, :].mean(dim=1)           # fp mean
         Xp_std = X.std(dim=1)                               # token std (diversity signal)
-        # fp group attention pool (learned weighting over fp tokens)
-        fp_x = X[:, :self._n_fp, :]
-        fp_attn2 = torch.softmax(fp_x @ self.fp_pool_query2 / scale, dim=1)
-        Xp_fp_attn = (fp_attn2.unsqueeze(-1) * fp_x).sum(dim=1)
-        Xp = Xp + self.em_gate * Xp_em + self.em_max_gate * Xp_em_max + self.fp_gate * Xp_fp + self.std_gate * Xp_std + self.fp_pool_gate2 * Xp_fp_attn
+        Xp_cross_prod = Xp_fp * Xp_em                       # multiplicative fp x embed interaction
+        Xp = Xp + self.em_gate * Xp_em + self.em_max_gate * Xp_em_max + self.fp_gate * Xp_fp + self.std_gate * Xp_std + self.cross_prod_gate * Xp_cross_prod
         Xp = self.drop(self.norm(Xp))
         return self.head(Xp).squeeze(-1)
 
@@ -448,7 +443,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         lr = BASE_CONFIG['lr']
         wd = BASE_CONFIG['weight_decay']
         fast_names = {'em_gate', 'fp_gate', 'em_max_gate', 'std_gate',
-                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate', 'fp_pool_query2', 'fp_pool_gate2'}
+                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate', 'cross_prod_gate'}
         fast_params, base_params = [], []
         for name, p in model.named_parameters():
             if any(fn in name for fn in fast_names):
