@@ -455,9 +455,12 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             weight_decay=wd,
             amsgrad=True,
         )
-        # pos_weight: iter71: try 0.20 (tuning below 0.22)
-        pos_weight = torch.tensor([0.20]).to(device)
-        loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        # pos_weight: auto-computed from train labels (avoid roc_s-only sweep distortion)
+        y_train_labels = torch.stack([train_ds[i][1] for i in range(len(train_ds))])
+        n_pos = y_train_labels.sum()
+        n_neg = len(y_train_labels) - n_pos
+        pw = (n_neg / n_pos).clamp(min=0.1, max=10.0)
+        loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw.to(device))
 
         model = train_model(model, optimizer, train_loader, val_loader, loss_fn)
 
