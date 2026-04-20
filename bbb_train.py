@@ -1,4 +1,10 @@
 """
+BBB gMLP model — Phase 2 HPO backup (snapshot 2026-04-19).
+Phase 2 best: roc_s=0.87848 (commit 3d2d7c8, run18)
+  drop=0.047, lr=1.066e-4, wd=3.55e-6, d_model=512, d_ffn=1048, bs=128, pos_weight=0.08
+See bbb_hpo_results_combo1.tsv for full Phase 2 HPO history.
+DO NOT modify — restore this file to bbb_train.py when resuming Phase 2.
+
 BBB gMLP model — architecture optimization.
 This is the file the autoresearch agent modifies.
 
@@ -386,9 +392,12 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             lr=BASE_CONFIG['lr'],
             weight_decay=1e-4,  # increased from 1e-5 for more L2 regularization
         )
-        # pos_weight: fixed at 0.08 (continuing lower from 0.12-keep)
-        pos_weight = torch.tensor([0.08]).to(device)
-        loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        # pos_weight: auto-computed from train labels (avoid roc_s-only sweep distortion)
+        y_train_labels = torch.stack([train_ds[i][1] for i in range(len(train_ds))])
+        n_pos = y_train_labels.sum()
+        n_neg = len(y_train_labels) - n_pos
+        pw = (n_neg / n_pos).clamp(min=0.1, max=10.0)
+        loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw.to(device))
 
         model = train_model(model, optimizer, train_loader, val_loader, loss_fn)
 
