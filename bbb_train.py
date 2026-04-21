@@ -132,7 +132,7 @@ class gMLPBlock(nn.Module):
 
 
 class gMLP(nn.Module):
-    def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4, drop_path_rate=0.15):
+    def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4, drop_path_rate=0.08):
         super().__init__()
         # Linearly increasing drop path: 0 → drop_path_rate across layers
         dpr = [drop_path_rate * i / max(1, num_layers - 1) for i in range(num_layers)]
