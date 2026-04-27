@@ -21,3 +21,6 @@ dev/
 
 # Results file
 results.tsv
+
+# Per-iteration TSV log (manual append; preserved across git reset --hard)
+bbb_results_combo1_v2.tsv
