@@ -100,13 +100,29 @@ class SpatialGatingUnit(nn.Module):
         return u * v
 
 
+class DropPath(nn.Module):
+    """iter10: per-sample stochastic depth on residual branch."""
+    def __init__(self, drop_prob=0.1):
+        super().__init__()
+        self.drop_prob = drop_prob
+
+    def forward(self, x):
+        if not self.training or self.drop_prob == 0:
+            return x
+        keep_prob = 1.0 - self.drop_prob
+        shape = (x.shape[0],) + (1,) * (x.dim() - 1)
+        mask = x.new_empty(shape).bernoulli_(keep_prob).div_(keep_prob)
+        return x * mask
+
+
 class gMLPBlock(nn.Module):
-    def __init__(self, d_model, d_ffn, seq_len):
+    def __init__(self, d_model, d_ffn, seq_len, drop_path=0.1):
         super().__init__()
         self.norm          = nn.LayerNorm(d_model)
         self.channel_proj1 = nn.Linear(d_model, d_ffn * 2)
         self.channel_proj2 = nn.Linear(d_ffn, d_model)
         self.sgu           = SpatialGatingUnit(d_ffn, seq_len)
+        self.drop_path     = DropPath(drop_path)
 
     def forward(self, x):
         residual = x
@@ -114,7 +130,7 @@ class gMLPBlock(nn.Module):
         x = F.gelu(self.channel_proj1(x))
         x = self.sgu(x)
         x = self.channel_proj2(x)
-        return x + residual
+        return self.drop_path(x) + residual
 
 
 class gMLP(nn.Module):
