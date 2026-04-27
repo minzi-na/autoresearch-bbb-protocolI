@@ -1,22 +1,21 @@
 """
-BBB gMLP model — architecture optimization (Phase 1 v2 starting point).
+BBB gMLP model — Phase 2 HPO backup (snapshot 2026-04-19).
+Phase 2 best: roc_s=0.87848 (commit 3d2d7c8, run18)
+  drop=0.047, lr=1.066e-4, wd=3.55e-6, d_model=512, d_ffn=1048, bs=128, pos_weight=0.08
+See bbb_hpo_results_combo1.tsv for full Phase 2 HPO history.
+DO NOT modify — restore this file to bbb_train.py when resuming Phase 2.
 
-Architecture: original gMLP (a489d67 — Conv1d SGU, gated_pool, no SiLU/RMSNorm).
-Training dynamics: original (Adam, val_loss ES, no scheduler, no smoothing, no grad clip).
-Loss: BCEWithLogitsLoss with pos_weight = n_neg/n_pos (auto-computed per seed).
-Eval: internal scaffold test 10-seed mean; ext/holdout 10-seed soft voting ensemble.
-
+BBB gMLP model — architecture optimization.
 This is the file the autoresearch agent modifies.
 
 The agent may freely change:
 - Model architecture: SpatialGatingUnit, gMLPBlock, gMLP, MultiModalGMLPFromFlat
+- Training details inside train_model() (optimizer type, scheduler, etc.)
 
 The agent must NOT change:
 - bbb_prepare.py (data loading, splitting, evaluation)
 - Any hyperparameter value in BASE_CONFIG
-- pos_weight (auto-computed; do not hardcode or tune)
-- Training dynamics (Adam optimizer, val_loss ES, etc. — locked at original gMLP baseline)
-- The output format (the --- block at the end of __main__, 9 metrics)
+- The output format (the --- block at the end of __main__)
 
 Usage:
     conda run -n rapids-25.02 python bbb_train.py > bbb_run_combo<N>.log 2>&1
@@ -34,8 +33,7 @@ from bbb_prepare import *  # fixed utilities, constants, device
 from copy import deepcopy
 
 # Artifact output directory (current run — agent copies to best/ on keep)
-ARTIFACT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            'bbb_artifacts', 'current')
+ARTIFACT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bbb_artifacts', 'current')
 
 # Dataset cache directory — computed once, reloaded on every subsequent run
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dataset_cache')
@@ -53,7 +51,7 @@ BASE_CONFIG = {
     'd_model':      512,
     'd_ffn':        1048,
     'depth':        4,
-    'dropout':      0.2,
+    'dropout':      0.1,
     'lr':           1e-4,
     'weight_decay': 1e-5,
     'num_epochs':   NUM_EPOCHS,   # 50, from bbb_prepare
@@ -86,42 +84,107 @@ HOLDOUT_EMBED_PATHS = {
 # Model Architecture  (agent modifies this section)
 # ---------------------------------------------------------------------------
 
-class SpatialGatingUnit(nn.Module):
-    def __init__(self, d_ffn, seq_len):
+class RMSNorm(nn.Module):
+    """Root Mean Square Layer Normalization (no mean centering)."""
+    def __init__(self, d, eps=1e-8):
         super().__init__()
-        self.norm         = nn.LayerNorm(d_ffn)
-        self.spatial_proj = nn.Conv1d(seq_len, seq_len, kernel_size=1)
-        nn.init.constant_(self.spatial_proj.bias, 1.0)
+        self.scale = nn.Parameter(torch.ones(d))
+        self.eps   = eps
 
     def forward(self, x):
-        u, v = x.chunk(2, dim=-1)
-        v = self.norm(v)
-        v = self.spatial_proj(v)
-        return u * v
+        rms = x.pow(2).mean(dim=-1, keepdim=True).add(self.eps).sqrt()
+        return (x / rms) * self.scale
+
+
+class SpatialGatingUnit(nn.Module):
+    """Attention-based SGU with pre-norm on both u and v + learned temperature + attn dropout.
+
+    Builds on ae66a27 (0.8563): pre-norm u+v + stoch_depth 0.05 + learned_temp + pos_weight.
+    Adds attention dropout (p=0.1) to the attention weights for additional regularization.
+    With seq_len=4, dropout on a 4x4 attention matrix adds noise to cross-modal mixing.
+    iter57: mask diagonal in attention (no self-attention; force cross-modal only).
+    """
+    def __init__(self, d_ffn, seq_len, attn_drop=0.1):
+        super().__init__()
+        self.norm_v    = nn.LayerNorm(d_ffn)   # normalize v (gate computation)
+        self.norm_u    = nn.LayerNorm(d_ffn)   # normalize u (input signal)
+        self.d_ffn     = d_ffn
+        # Learnable log-temperature: init so scale ≈ 1/sqrt(d_ffn) at start
+        import math
+        self.log_temp  = nn.Parameter(torch.tensor(-0.5 * math.log(d_ffn)))
+        self.attn_drop = nn.Dropout(attn_drop)
+        # Self-attention Q, K, V projections for the v gate
+        self.q_proj    = nn.Linear(d_ffn, d_ffn)
+        self.k_proj    = nn.Linear(d_ffn, d_ffn)
+        self.v_proj    = nn.Linear(d_ffn, d_ffn)
+        # Init near-identity for stable start
+        nn.init.eye_(self.v_proj.weight)
+        nn.init.zeros_(self.v_proj.bias)
+
+    def forward(self, x):
+        u, v = x.chunk(2, dim=-1)        # (B, seq_len, d_ffn) each
+        u = self.norm_u(u)               # normalize u before gating
+        v = self.norm_v(v)               # normalize v before attention
+        # Self-attention gating with learned temperature + attention dropout
+        Q = self.q_proj(v)               # (B, seq_len, d_ffn)
+        K = self.k_proj(v)               # (B, seq_len, d_ffn)
+        V = self.v_proj(v)               # (B, seq_len, d_ffn)
+        scale = self.log_temp.exp()      # learned scalar temperature
+        scores = Q @ K.transpose(-1, -2) * scale   # (B, seq_len, seq_len)
+        # Mask diagonal to force cross-modal attention only (no self-attention)
+        seq_len = scores.size(-1)
+        diag_mask = torch.eye(seq_len, device=scores.device, dtype=torch.bool)
+        scores = scores.masked_fill(diag_mask.unsqueeze(0), float('-inf'))
+        attn  = torch.softmax(scores, dim=-1)       # (B, seq_len, seq_len)
+        attn  = self.attn_drop(attn)     # dropout on attention weights
+        v_out = attn @ V                 # (B, seq_len, d_ffn)
+        return u * v_out
 
 
 class gMLPBlock(nn.Module):
-    def __init__(self, d_model, d_ffn, seq_len):
+    """gMLP block with optional stochastic depth regularization.
+
+    Stochastic depth: during training, the block output is dropped with
+    probability `drop_prob` (residual path always preserved). At inference,
+    the full block runs. Linear schedule: earlier layers have lower drop prob.
+    """
+    def __init__(self, d_model, d_ffn, seq_len, drop_prob=0.0):
         super().__init__()
-        self.norm          = nn.LayerNorm(d_model)
+        self.norm          = RMSNorm(d_model)
         self.channel_proj1 = nn.Linear(d_model, d_ffn * 2)
         self.channel_proj2 = nn.Linear(d_ffn, d_model)
         self.sgu           = SpatialGatingUnit(d_ffn, seq_len)
+        self.drop_prob     = drop_prob
 
     def forward(self, x):
         residual = x
+        if self.training and self.drop_prob > 0.0:
+            # Bernoulli drop: entire block dropped for some samples in batch
+            keep_prob = 1.0 - self.drop_prob
+            shape     = (x.shape[0],) + (1,) * (x.ndim - 1)  # (B, 1, 1)
+            mask      = torch.rand(shape, device=x.device) < keep_prob
+            # Scale surviving blocks to keep expectation correct
+            if not mask.any():
+                return residual
         x = self.norm(x)
-        x = F.gelu(self.channel_proj1(x))
+        x = F.silu(self.channel_proj1(x))
         x = self.sgu(x)
         x = self.channel_proj2(x)
+        if self.training and self.drop_prob > 0.0:
+            x = x * mask / keep_prob
         return x + residual
 
 
 class gMLP(nn.Module):
-    def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4):
+    def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4,
+                 stochastic_depth_rate=0.1):
         super().__init__()
+        # Linear schedule: block 0 gets 0, block (num_layers-1) gets max rate
+        drop_probs = [stochastic_depth_rate * i / max(num_layers - 1, 1)
+                      for i in range(num_layers)]
         self.model = nn.Sequential(
-            *[gMLPBlock(d_model, d_ffn, seq_len) for _ in range(num_layers)]
+            *[gMLPBlock(d_model, d_ffn, seq_len, drop_prob=dp)
+              for dp in drop_probs]
         )
 
     def forward(self, x):
@@ -131,7 +194,8 @@ class gMLP(nn.Module):
 class MultiModalGMLPFromFlat(nn.Module):
     def __init__(self, mod_dims: OrderedDict,
                  d_model=512, d_ffn=1048, depth=4,
-                 dropout=0.2, use_gated_pool=True):
+                 dropout=0.2, use_gated_pool=True,
+                 stochastic_depth_rate=0.05):
         super().__init__()
         self.mod_names      = list(mod_dims.keys())
         self.mod_dims       = [mod_dims[n] for n in self.mod_names]
@@ -145,10 +209,14 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.backbone = gMLP(
             d_model=d_model, d_ffn=d_ffn,
             seq_len=self.seq_len, num_layers=depth,
+            stochastic_depth_rate=stochastic_depth_rate,
         )
         self.norm = nn.LayerNorm(d_model)
         if use_gated_pool:
-            self.alpha = nn.Parameter(torch.zeros(self.seq_len))
+            # Attention pooling: single input-dependent query (iter90, Phase 1 best)
+            self.pool_query = nn.Parameter(torch.zeros(d_model))
+        # Learnable gate for input skip connection: z=0 → pure backbone, z=1 → full skip
+        self.skip_gate = nn.Parameter(torch.zeros(1))
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
 
@@ -156,11 +224,16 @@ class MultiModalGMLPFromFlat(nn.Module):
         chunks = torch.split(x, self.mod_dims, dim=1)
         tokens = [self.proj[name](chunk)
                   for name, chunk in zip(self.mod_names, chunks)]
-        X = torch.stack(tokens, dim=1)          # (B, seq_len, d_model)
-        X = self.backbone(X)
+        X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) — pre-backbone
+        X  = self.backbone(X0)
+        # Skip connection: mix backbone output with pre-backbone tokens
+        gate = torch.sigmoid(self.skip_gate)
+        X = (1.0 - gate) * X + gate * X0        # learned convex combination
         if self.use_gated_pool:
-            w  = torch.softmax(self.alpha, dim=0)
-            Xp = (X * w.view(1, -1, 1)).sum(dim=1)
+            # Attention pooling: single learned query → per-token scores → weighted sum
+            scores = (X @ self.pool_query) / (X.shape[-1] ** 0.5)  # (B, seq_len)
+            w = torch.softmax(scores, dim=-1)                        # (B, seq_len)
+            Xp = (X * w.unsqueeze(-1)).sum(dim=1)                   # (B, d_model)
         else:
             Xp = X.mean(dim=1)
         Xp = self.drop(self.norm(Xp))
@@ -190,6 +263,7 @@ def train_model(model, optimizer, train_loader, val_loader, loss_fn,
             x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
             loss_fn(model(x), y).backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
         model.eval()
@@ -249,7 +323,7 @@ def apply_scaler(X: torch.Tensor, scaler, rd_start, rd_end) -> torch.Tensor:
 
 
 # ---------------------------------------------------------------------------
-# Helpers for ensemble evaluation
+# Evaluation: scaffold split, 10 seeds
 # ---------------------------------------------------------------------------
 
 def predict_probs(model, loader) -> np.ndarray:
@@ -262,31 +336,20 @@ def predict_probs(model, loader) -> np.ndarray:
     return np.asarray(probs, dtype=np.float32)
 
 
-def metrics_from_probs(y_true: torch.Tensor, probs: np.ndarray, threshold: float = 0.5):
-    """Return ROC-AUC + threshold-based MCC/F1/ACC from probs."""
+def roc_auc_from_probs(y_true: torch.Tensor, probs: np.ndarray) -> float:
     y_true_np = y_true.cpu().numpy().ravel()
-    y_pred = (probs > threshold).astype(int)
-    return {
-        'roc_auc':  float(roc_auc_score(y_true_np, probs)),
-        'mcc':      float(matthews_corrcoef(y_true_np, y_pred)),
-        'f1':       float(f1_score(y_true_np, y_pred, zero_division=0)),
-        'accuracy': float(accuracy_score(y_true_np, y_pred)),
-    }
+    return round(float(roc_auc_score(y_true_np, probs)), 4)
 
-
-# ---------------------------------------------------------------------------
-# Evaluation: scaffold split, 10 seeds
-# ---------------------------------------------------------------------------
 
 def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
     """
     Train with scaffold split across all SEEDS.
-    Returns 9 metrics:
-      internal scaffold test (10-seed mean):     roc_auc, mcc, f1, accuracy
-      external soft voting ensemble:             roc_auc
-      holdout soft voting ensemble:              roc_auc, mcc, f1, accuracy
+    Returns:
+        mean internal test ROC-AUC           (float)
+        soft-voting ensemble external ROC-AUC (float)
+        soft-voting ensemble holdout ROC-AUC  (float)
     """
-    int_aucs, int_mccs, int_f1s, int_accs = [], [], [], []
+    int_aucs = []
     ext_seed_probs, holdout_seed_probs = [], []
 
     for seed in SEEDS:
@@ -321,40 +384,30 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             depth=BASE_CONFIG['depth'],
             dropout=BASE_CONFIG['dropout'],
             use_gated_pool=True,
+            stochastic_depth_rate=0.05,
         ).to(device)
 
         optimizer = optim.Adam(
             model.parameters(),
             lr=BASE_CONFIG['lr'],
-            weight_decay=BASE_CONFIG['weight_decay'],
+            weight_decay=1e-4,  # increased from 1e-5 for more L2 regularization
         )
-        # pos_weight = n_neg/n_pos (auto-computed; the only patch vs a489d67)
-        y_train = train_ds.tensors[1] if hasattr(train_ds, 'tensors') else train_ds.labels
-        n_pos = float((y_train == 1).sum())
-        n_neg = float((y_train == 0).sum())
-        pw = torch.tensor([n_neg / n_pos], dtype=torch.float32, device=device)
-        loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw)
+        # pos_weight: fixed at 0.08 (continuing lower from 0.12-keep)
+        pos_weight = torch.tensor([0.08]).to(device)
+        loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         model = train_model(model, optimizer, train_loader, val_loader, loss_fn)
 
-        # Internal scaffold test: full metrics per seed
-        int_metrics = eval_model(model, test_loader)
-        int_aucs.append(int_metrics['roc_auc'])
-        int_mccs.append(int_metrics['mcc'])
-        int_f1s.append(int_metrics['f1'])
-        int_accs.append(int_metrics['accuracy'])
-
-        # Ext / holdout: store probabilities for ensemble
+        int_auc       = eval_model(model, test_loader)['roc_auc']
         ext_probs     = predict_probs(model, ext_loader)
         holdout_probs = predict_probs(model, holdout_loader)
+        ext_auc     = roc_auc_from_probs(ext_dataset.labels,     ext_probs)
+        holdout_auc = roc_auc_from_probs(holdout_dataset.labels, holdout_probs)
+
+        int_aucs.append(int_auc)
         ext_seed_probs.append(ext_probs)
         holdout_seed_probs.append(holdout_probs)
-
-        # Per-seed sanity print (per-seed ext/holdout AUC, not used for final metrics)
-        ext_auc_seed     = float(roc_auc_score(ext_dataset.labels.cpu().numpy().ravel(),     ext_probs))
-        holdout_auc_seed = float(roc_auc_score(holdout_dataset.labels.cpu().numpy().ravel(), holdout_probs))
-        print(f"  seed={seed:>4d}  int={int_metrics['roc_auc']:.4f}  "
-              f"ext={ext_auc_seed:.4f}  holdout={holdout_auc_seed:.4f}")
+        print(f"  seed={seed:>4d}  int={int_auc:.4f}  ext={ext_auc:.4f}  holdout={holdout_auc:.4f}")
 
         # ── Save artifacts for this seed ──────────────────────────────────
         seed_dir = os.path.join(ARTIFACT_DIR, f'seed_{seed}')
@@ -374,10 +427,9 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             'base_config': {k: (v if not hasattr(v, '__name__') else str(v))
                             for k, v in BASE_CONFIG.items()},
             'metrics': {
-                'roc_auc_scaffold': int_metrics['roc_auc'],
-                'mcc_scaffold':     int_metrics['mcc'],
-                'f1_scaffold':      int_metrics['f1'],
-                'acc_scaffold':     int_metrics['accuracy'],
+                'roc_auc_scaffold': int_auc,
+                'roc_auc_external': ext_auc,
+                'roc_auc_holdout':  holdout_auc,
             },
         }
         with open(os.path.join(seed_dir, 'config.json'), 'w') as f:
@@ -389,25 +441,13 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    # Soft voting ensemble for ext/holdout
-    ext_ensemble     = np.mean(np.stack(ext_seed_probs,     axis=0), axis=0)
-    holdout_ensemble = np.mean(np.stack(holdout_seed_probs, axis=0), axis=0)
-
-    ext_metrics     = metrics_from_probs(ext_dataset.labels,     ext_ensemble)
-    holdout_metrics = metrics_from_probs(holdout_dataset.labels, holdout_ensemble)
-
     mean = lambda lst: float(sum(lst) / len(lst))
-    return {
-        'roc_s':       mean(int_aucs),
-        'mcc_s':       mean(int_mccs),
-        'f1_s':        mean(int_f1s),
-        'acc_s':       mean(int_accs),
-        'roc_ext':     ext_metrics['roc_auc'],
-        'roc_holdout': holdout_metrics['roc_auc'],
-        'mcc_holdout': holdout_metrics['mcc'],
-        'f1_holdout':  holdout_metrics['f1'],
-        'acc_holdout': holdout_metrics['accuracy'],
-    }
+    ext_ensemble_probs     = np.mean(np.stack(ext_seed_probs,     axis=0), axis=0)
+    holdout_ensemble_probs = np.mean(np.stack(holdout_seed_probs, axis=0), axis=0)
+    ext_auc     = roc_auc_from_probs(ext_dataset.labels,     ext_ensemble_probs)
+    holdout_auc = roc_auc_from_probs(holdout_dataset.labels, holdout_ensemble_probs)
+    print(f"  [ensemble] ext={ext_auc:.4f}  holdout={holdout_auc:.4f}")
+    return mean(int_aucs), ext_auc, holdout_auc
 
 
 # ---------------------------------------------------------------------------
@@ -443,10 +483,10 @@ if __name__ == '__main__':
     print(f"\n{'='*60}")
     print(f"Evaluating | split_mode={SPLIT_MODE} | n_seeds={len(SEEDS)}")
     print('='*60)
-    m = run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims)
-    print(f"\nMean  int={m['roc_s']:.4f}  ext={m['roc_ext']:.4f}  holdout={m['roc_holdout']:.4f}")
-    print(f"[internal] mcc={m['mcc_s']:.4f}  f1={m['f1_s']:.4f}  acc={m['acc_s']:.4f}")
-    print(f"[holdout]  mcc={m['mcc_holdout']:.4f}  f1={m['f1_holdout']:.4f}  acc={m['acc_holdout']:.4f}")
+    int_auc, ext_auc, holdout_auc = run_evaluation(
+        dataset, ext_dataset, holdout_dataset, mod_dims,
+    )
+    print(f"\nMean  int={int_auc:.4f}  ext={ext_auc:.4f}  holdout={holdout_auc:.4f}")
 
     # -----------------------------------------------------------------------
     # Output block — DO NOT CHANGE FORMAT (parsed by autoresearch loop)
@@ -454,15 +494,9 @@ if __name__ == '__main__':
     peak_vram_mb = (torch.cuda.max_memory_allocated() / 1024 / 1024
                     if torch.cuda.is_available() else 0.0)
     print('\n---')
-    print(f'roc_auc_scaffold:    {m["roc_s"]:.6f}')
-    print(f'roc_auc_external:    {m["roc_ext"]:.6f}')
-    print(f'roc_auc_holdout:     {m["roc_holdout"]:.6f}')
-    print(f'mcc_scaffold:        {m["mcc_s"]:.6f}')
-    print(f'f1_scaffold:         {m["f1_s"]:.6f}')
-    print(f'acc_scaffold:        {m["acc_s"]:.6f}')
-    print(f'mcc_holdout:         {m["mcc_holdout"]:.6f}')
-    print(f'f1_holdout:          {m["f1_holdout"]:.6f}')
-    print(f'acc_holdout:         {m["acc_holdout"]:.6f}')
+    print(f'roc_auc_scaffold:    {int_auc:.6f}')
+    print(f'roc_auc_external:    {ext_auc:.6f}')
+    print(f'roc_auc_holdout:     {holdout_auc:.6f}')
     print(f'total_seconds:       {time.time() - t_start:.1f}')
     print(f'peak_vram_mb:        {peak_vram_mb:.1f}')
     print(f'n_seeds:             {len(SEEDS)}')

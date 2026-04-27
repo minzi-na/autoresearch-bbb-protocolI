@@ -69,36 +69,21 @@ EMBED_PATHS (콤보별로 필요한 것만 포함):
 ## Baseline Reset Context (Phase 1 재시작 기준)
 
 이전 Phase 1은 `pos_weight=0.08` 하드코딩 체제로 진행되어 threshold calibration 붕괴 문제가 발견됨.
-또한 이전 Phase 1은 architecture 변경과 학습 동역학 변경(AdamW, CosineLR, val_roc_auc ES 등)이 섞인 채 누적되어 phase1.md 원칙(Phase 1 = architecture-only)에 위배됨.
+이번 재실행에서는 `pos_weight`를 auto-computed(`n_neg/n_pos`)로 고정하고 architecture search를 새로 시작한다.
 
-이번 재실행에서는 **original gMLP baseline에서 완전히 새로 시작**한다.
+**새 baseline 출발점**: iter90 architecture + `pos_weight=auto-computed`, internal training only
 
-**새 baseline 출발점**: original gMLP architecture (a489d67) + original training dynamics (Adam, val_loss-based ES, no scheduler, no smoothing) + `pos_weight=auto-computed` (`n_neg/n_pos`)
-
-측정 방법: original gMLP architecture + pos_weight=auto 첫 실행 결과. 첫 실행 시점의 `bbb_train.py`는 `bbb_iter90_auto.py`/`bbb_iter90.py`(이전 Phase 1 결과)와 별도 보존됨.
-
-| 지표 | 새 baseline (pw=auto) |
-|---|---|
-| roc_s       | **0.848100** |
-| mcc_s       | **0.426490** |
-| roc_ext     | 0.770081 (10-seed ensemble) |
-| roc_holdout | 0.808038 (10-seed ensemble) |
-| f1_s        | 0.920180 |
-| acc_s       | 0.862290 |
-| mcc_holdout | 0.403843 (참고용, Phase 1 후 분석) |
-| f1_holdout  | 0.722266 (참고용) |
-| acc_holdout | 0.675849 (참고용) |
+| 지표 | 새 baseline (pw=auto) | 이전 iter90 (pw=0.08, 참고용) |
+|---|---|---|
+| roc_s   | **0.8611** | 0.8757 |
+| mcc_s   | **0.4415** | (미측정) |
+| roc_ext | **0.7788** | 0.7779 |
+| roc_holdout | **0.8163** | 0.8170 |
 
 **이전 결과와의 비교 금지**:
-- `bbb_results_combo1.tsv`(구 버전, 107행)는 pos_weight 비고정 + 학습 동역학 누적 변경 체제의 결과. 새 `bbb_results_combo1_v2.tsv`(pos_weight=auto + original gMLP 체제)의 수치와 **loss landscape, 평가 방식이 다른 체제**이므로 직접 비교 불가.
+- `bbb_results_combo1.tsv`(구 버전, pw=0.08 체제)의 수치들과 새 `bbb_results_combo1_v2.tsv`(pw=auto 체제)의 수치는 **loss landscape가 다른 체제**의 결과이므로 직접 비교 불가.
 - "이전 iter90의 0.8757을 넘어야 한다"는 식의 목표 설정 금지.
-- 새 baseline (`roc_s=0.8481`, `mcc_s=0.4265`)이 모든 keep/discard 비교의 출발점.
-
-**iter90 보존 위치** (참고만, Phase 1 진행에 사용 금지):
-- 코드 snapshot: `bbb_train_backup.py`
-- Git 커밋: `116735a iter90: attention pooling`
-- 모델 가중치: `bbb_artifacts/archive/best_116735a_iter90_phase1/`
-- 이력 TSV: `bbb_results_combo1.tsv` (구 버전)
+- 새 baseline (`roc_s=0.8611`, `mcc_s=0.4415`)이 모든 keep/discard 비교의 출발점.
 
 ## Setup
 
@@ -138,7 +123,7 @@ grep "^roc_auc_" bbb_run_combo<N>.log
 - Any hyperparameter value (d_model, d_ffn, depth, dropout, lr, weight_decay, batch_size, seeds)
 - `pos_weight` — auto-computed from train labels (fixed; do not hardcode or tune)
 
-**The goal**: maximize `roc_auc_scaffold` (internal test ROC-AUC, 10 seeds mean) and `mcc_scaffold` (internal test MCC, 10 seeds mean) **simultaneously**.
+**The goal**: maximize `roc_auc_scaffold` (internal test ROC-AUC, 10 seeds 평균), 'mcc_scaffold' (internal test MCC, 10 seeds mean)
 roc_ext, roc_holdout가 함께 개선되지 않으면 description에 명시 (internal-only gain 주의).
 
 **Simplicity criterion**: simpler is better if scores are equal.
@@ -148,17 +133,17 @@ roc_ext, roc_holdout가 함께 개선되지 않으면 description에 명시 (int
 A successful run prints:
 ```
 ---
-roc_auc_scaffold:    0.848100
-roc_auc_external:    0.770081
-roc_auc_holdout:     0.808038
-mcc_scaffold:        0.426490
-f1_scaffold:         0.920180
-acc_scaffold:        0.862290
-mcc_holdout:         0.403843
-f1_holdout:          0.722266
-acc_holdout:         0.675849
-total_seconds:       47.2
-peak_vram_mb:        249.8
+roc_auc_scaffold:    0.861070
+roc_auc_external:    0.778800
+roc_auc_holdout:     0.816300
+mcc_scaffold:        0.441530
+f1_scaffold:         0.926640
+acc_scaffold:        0.871860
+mcc_holdout:         0.418808
+f1_holdout:          0.758258
+acc_holdout:         0.704316
+total_seconds:       84.3
+peak_vram_mb:        536.5
 n_seeds:             10
 ```
 
@@ -192,17 +177,17 @@ commit	roc_s	mcc_s	roc_ext	roc_holdout	status	description
 **keep 기준**: roc_s와 mcc_s가 **동시에 개선**될 때 keep. 한쪽만 개선되거나 한쪽이 하락하면 discard.
 
 **"개선"의 정의**: 10-seed mean 기준 직전 best 대비 **+0.001 이상** 상승. +0.001 미만의 변동은 noise로 간주하여 discard.
-- 예: best=0.8481 → 새 결과=0.8485 (Δ=+0.0004) → noise, discard
-- 예: best=0.8481 → 새 결과=0.8495 (Δ=+0.0014) → 개선, keep 후보
+- 예: best=0.8611 → 새 결과=0.8615 (Δ=+0.0004) → noise, discard
+- 예: best=0.8611 → 새 결과=0.8625 (Δ=+0.0014) → 개선, keep 후보
 
 roc_ext 또는 roc_holdout이 함께 개선되지 않으면 description에 명시 (internal-only gain 주의).
 
 Example (`bbb_results_combo1_v2.tsv`, combo: `maccs+avalon+rdkit+mole`):
 ```
 commit	roc_s	mcc_s	roc_ext	roc_holdout	status	description
-a489d67	0.848100	0.426490	0.770081	0.808038	keep	baseline (original gMLP + pos_weight=auto)
-b2c3d4e	0.851000	0.432000	0.772000	0.810000	keep	add LayerNorm after projection
-c3d4e5f	0.842000	0.418000	0.768000	0.806000	discard	replace SGU with simple mean gate
+a1b2c3d	0.861070	0.441530	0.778800	0.816300	keep	baseline (pos_weight auto-computed, iter90 arch)
+b2c3d4e	0.863000	0.445000	0.780000	0.818000	keep	add LayerNorm after projection
+c3d4e5f	0.855000	0.432000	0.771000	0.810000	discard	replace SGU with simple mean gate
 ```
 
 ## Parallel Execution (3 combos simultaneously)
@@ -371,6 +356,68 @@ pretrained embedding — 분포가 완전히 다른 입력을 단순 `Linear` �
 
 ---
 
+#### D. Training Dynamics (리스크: 낮음)
+
+**현재 문제:**
+Adam + lr=1e-4 고정, no scheduler, no gradient clipping.
+Adam의 weight_decay는 adaptive gradient에 곱해져 실질적 decay 효과가 약함.
+고정 lr은 후반 수렴이 느리거나 과적합 방지 어려움.
+
+또한 scaffold split 특성상 val set의 scaffold가 train과 완전히 달라 **distribution shift** 발생.
+이로 인해 val_loss가 노이즈가 크고 early stopping이 너무 일찍 발동하거나 불안정해짐.
+
+**개선 방향:**
+
+1. **Early stopping 기준을 val_loss → val_roc_auc로 변경** (scaffold split 핵심 문제 해결):
+   val_loss는 분포 차이에 민감하지만 val_roc_auc는 상대적 순위 기반이라 scaffold shift에 더 강건.
+   최종 평가 지표와도 일치하여 직접적 최적화 가능.
+   ```python
+   # 매 epoch val set에서 inference → roc_auc 계산
+   model.eval()
+   y_true, y_prob = [], []
+   with torch.no_grad():
+       for x, y in val_loader:
+           prob = torch.sigmoid(model(x.to(device))).cpu().numpy()
+           y_prob.extend(prob); y_true.extend(y.numpy())
+   val_auc = roc_auc_score(y_true, y_prob) if len(set(y_true)) > 1 else 0.0
+   if val_auc > best_val_auc:
+       best_state = deepcopy(model.state_dict())
+       bad = 0
+   else:
+       bad += 1
+   ```
+
+2. **Label smoothing** (val_loss 안정화 + 과적합 억제):
+   Hard 0/1 target 대신 soft target으로 loss landscape를 부드럽게.
+   scaffold split의 distribution shift에서 과도한 확신을 억제.
+   ```python
+   smooth = 0.1
+   y_smooth = y * (1 - smooth) + smooth * 0.5   # 1→0.95, 0→0.05
+   loss = F.binary_cross_entropy_with_logits(pred, y_smooth)
+   ```
+
+3. **Warmup + cosine annealing** (학습 초기 불안정 방지):
+   처음 몇 epoch 동안 lr을 선형으로 올리고 이후 cosine decay.
+   scaffold split에서 초기 val_loss spike를 줄여 early stopping 오발동 방지.
+   ```python
+   warmup_epochs = 5
+   def lr_lambda(epoch):
+       if epoch < warmup_epochs:
+           return (epoch + 1) / warmup_epochs
+       progress = (epoch - warmup_epochs) / max(1, num_epochs - warmup_epochs)
+       return 0.5 * (1 + math.cos(math.pi * progress)) * 0.99 + 0.01  # eta_min=lr*0.01
+   scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+   # train loop 끝에: scheduler.step()
+   ```
+
+4. **AdamW + gradient clipping** (optimizer 개선):
+   ```python
+   optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+   torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+   ```
+
+---
+
 #### E. Cross-modal FiLM / AdaLN Conditioning (리스크: 중간)
 
 **개념:**
@@ -468,22 +515,26 @@ Dropout(0.2)만 head 직전에 적용. 소규모 데이터셋(~1677개)에서 mu
 
 | 순서 | 변경 내용 | 예상 효과 | 리스크 | 비고 |
 |------|-----------|-----------|--------|------|
-| 1 | Per-modality LayerNorm after projection | 이질적 입력 안정화 | 낮음 | 독립 변수로 검증 |
-| 2 | Modality dropout (p=0.15) | 과적합 억제 | 낮음 | combo2에 특히 효과적 |
-| 3 | Cross-modal FiLM (category-based) | backbone 진입 전 modality 간 상호 조건화 | 중간 | fp↔embed 분리 gating |
-| 4 | Attention pooling | 동적 modality weighting | 중간 | gated_pool 대체 |
-| 5 | Residual scaling (learnable λ) | SGU 안정화 | 중간 | 0 초기화로 안전 |
-| 6 | 2-layer per-modality projection | 표현력 ↑ | 중간 | 파라미터 증가 |
-| 7 | FiLM → AdaLN 변형 | normalization 후 conditioning으로 안정성 ↑ | 중간 | 3번 개선 버전 |
-| 8 | Multi-head SGU | cross-modal attention ↑ | 중간 | seq_len별 효과 다름 |
-| 9 | CLS token pooling | pooling 표현력 ↑ | 중간 | seq_len+1 주의 |
-| 10 | Stochastic depth | 과적합 억제 | 중간 | depth=4라 효과 제한적 |
-| 11 | Attention-based SGU | 동적 cross-modal mixing | 높음 | 파라미터 많음 |
-| 12 | SwiGLU/GeGLU activation | channel proj 개선 | 높음 | SGU 구조와 충돌 주의 |
+| 1 | Early stopping: val_loss → val_roc_auc | scaffold shift 대응, 안정적 수렴 | 낮음 | scaffold split 핵심 문제 직접 해결 |
+| 2 | Label smoothing (smooth=0.1) | loss 안정화, 과확신 억제 | 낮음 | 1번과 함께 적용 권장 |
+| 3 | Warmup (5 epoch) + cosine annealing | 초기 불안정 방지, 후반 수렴 개선 | 낮음 | early stopping 오발동 감소 |
+| 4 | AdamW + gradient clipping | optimizer 개선, 수렴 안정성 ↑ | 낮음 | 거의 항상 이득 |
+| 5 | Per-modality LayerNorm after projection | 이질적 입력 안정화 | 낮음 | 독립 변수로 검증 |
+| 6 | Modality dropout (p=0.15) | 과적합 억제 | 낮음 | combo2에 특히 효과적 |
+| 7 | Cross-modal FiLM (category-based) | backbone 진입 전 modality 간 상호 조건화 | 중간 | fp↔embed 분리 gating |
+| 8 | Attention pooling | 동적 modality weighting | 중간 | gated_pool 대체 |
+| 9 | Residual scaling (learnable λ) | SGU 안정화 | 중간 | 0 초기화로 안전 |
+| 10 | 2-layer per-modality projection | 표현력 ↑ | 중간 | 파라미터 증가 |
+| 11 | FiLM → AdaLN 변형 | normalization 후 conditioning으로 안정성 ↑ | 중간 | 8번 개선 버전 |
+| 12 | Multi-head SGU | cross-modal attention ↑ | 중간 | seq_len별 효과 다름 |
+| 13 | CLS token pooling | pooling 표현력 ↑ | 중간 | seq_len+1 주의 |
+| 14 | Stochastic depth | 과적합 억제 | 중간 | depth=4라 효과 제한적 |
+| 15 | Attention-based SGU | 동적 cross-modal mixing | 높음 | 파라미터 많음 |
+| 16 | SwiGLU/GeGLU activation | channel proj 개선 | 높음 | SGU 구조와 충돌 주의 |
 
 **실험 원칙:**
 - 변경은 **하나씩** 적용 (독립 변수 통제)
-- 학습 동역학 (optimizer=Adam, val_loss-based ES, no scheduler, no label smoothing 등)은 **original gMLP baseline 그대로 고정**, Phase 1에서 변경 금지
+- 단, 1+2 (AdamW + cosine)는 training dynamics 패키지로 묶어 한 번에 시도
 - roc_s와 mcc_s가 동시에 개선되지 않으면 즉시 `git reset --hard HEAD~1`
 - combo별로 같은 순서를 따르되, 결과가 달리면 combo 특성 분석 후 분기
 

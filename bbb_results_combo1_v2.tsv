@@ -1,0 +1,2 @@
+commit	roc_s	mcc_s	roc_ext	roc_holdout	status	description
+a489d67	0.848100	0.426490	0.770081	0.808038	keep	baseline (original gMLP arch + pos_weight=auto patch)
