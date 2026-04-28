@@ -175,7 +175,9 @@ class MultiModalGMLPFromFlat(nn.Module):
         super().__init__()
         self.mod_names      = list(mod_dims.keys())
         self.mod_dims       = [mod_dims[n] for n in self.mod_names]
-        self.seq_len        = len(self.mod_names)
+        self.n_mod          = len(self.mod_names)
+        # iter70: +1 group summary token (mean of modality tokens, init residual=0)
+        self.seq_len        = self.n_mod + 1
         self.use_gated_pool = use_gated_pool
 
         self.proj = nn.ModuleDict({
@@ -193,12 +195,17 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.drop = nn.Dropout(dropout)
         # iter55: skip connection sigmoid convex combine (init=0 → pure backbone)
         self.skip_gate = nn.Parameter(torch.zeros(1))
+        # iter70: learnable residual for group summary token (init=0 → exact mean)
+        self.group_residual = nn.Parameter(torch.zeros(d_model))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
         tokens = [self.proj[name](chunk)
                   for name, chunk in zip(self.mod_names, chunks)]
-        X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) - pre-backbone
+        X_mod = torch.stack(tokens, dim=1)      # (B, n_mod, d_model)
+        # iter70: append group summary token (mean of modality tokens + residual)
+        group_tok = X_mod.mean(dim=1, keepdim=True) + self.group_residual.view(1, 1, -1)
+        X0 = torch.cat([X_mod, group_tok], dim=1)   # (B, n_mod+1, d_model)
         X = self.backbone(X0)
         # iter55: sigmoid convex combine — init=0 → pure backbone, learns to mix in X0
         gate = torch.sigmoid(self.skip_gate)
