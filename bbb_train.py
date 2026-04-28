@@ -193,28 +193,12 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.drop = nn.Dropout(dropout)
         # iter55: skip connection sigmoid convex combine (init=0 → pure backbone)
         self.skip_gate = nn.Parameter(torch.zeros(1))
-        # iter73: cross-modality self-context FiLM (between proj and backbone)
-        # Output: gamma+beta per modality token. zero-init → identity (gamma=1, beta=0)
-        self.film_mlp = nn.Sequential(
-            nn.Linear(d_model, 64),
-            nn.GELU(),
-            nn.Linear(64, 2 * self.seq_len * d_model),
-        )
-        nn.init.zeros_(self.film_mlp[-1].weight)
-        nn.init.zeros_(self.film_mlp[-1].bias)
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
         tokens = [self.proj[name](chunk)
                   for name, chunk in zip(self.mod_names, chunks)]
         X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) - pre-backbone
-        # iter73: self-context FiLM modulation
-        ctx = X0.mean(dim=1)                                # (B, d_model)
-        film = self.film_mlp(ctx)                           # (B, 2*seq_len*d_model)
-        film = film.view(film.size(0), 2, self.seq_len, -1) # (B, 2, seq_len, d_model)
-        gamma = film[:, 0]                                  # (B, seq_len, d_model)
-        beta  = film[:, 1]
-        X0 = (1.0 + gamma) * X0 + beta                      # identity at init
         X = self.backbone(X0)
         # iter55: sigmoid convex combine — init=0 → pure backbone, learns to mix in X0
         gate = torch.sigmoid(self.skip_gate)
