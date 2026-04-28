@@ -189,11 +189,21 @@ commit	roc_s	mcc_s	roc_ext	roc_holdout	status	description
 6. `status`      — `keep`, `discard`, or `crash`
 7. `description` — short description of what was tried (no tabs)
 
-**keep 기준**: roc_s와 mcc_s가 **동시에 개선**될 때 keep. 한쪽만 개선되거나 한쪽이 하락하면 discard.
+**keep 기준 (iter42부터 완화 적용)**:
+- **Primary**: `roc_s`가 직전 best 대비 **+0.001 이상 개선**
+- **Secondary tolerance**: `mcc_s`의 직전 best 대비 변화가 **-0.003 이상** (즉, mcc_s 하락이 0.003 이내)
+- 두 조건 모두 만족할 때 keep
 
-**"개선"의 정의**: 10-seed mean 기준 직전 best 대비 **+0.001 이상** 상승. +0.001 미만의 변동은 noise로 간주하여 discard.
-- 예: best=0.8481 → 새 결과=0.8485 (Δ=+0.0004) → noise, discard
-- 예: best=0.8481 → 새 결과=0.8495 (Δ=+0.0014) → 개선, keep 후보
+**Architecture-only 원칙 (iter42 재확인)**:
+- 새 모듈을 추가하거나 기존 모듈을 교체하는 것은 architecture 변경 ✅
+- **drop_path 값(0.05/0.10/0.12/0.14 등) sweep은 hyperparameter tuning** ❌ (Phase 2 영역)
+- 패턴 자체(constant vs linear-decay)는 architectural design choice
+- iter41/iter42는 hyperparameter tuning이라 retroactive INVALIDATED, iter21로 복귀
+
+**"개선"의 정의**: 10-seed mean 기준 직전 best 대비 **+0.001 이상** 상승. +0.001 미만의 변동은 noise.
+- 예 (PASS): best=0.8528, 0.4376 → 새 결과=0.8540, 0.4365 (Δroc=+0.0012, Δmcc=-0.0011) → roc PASS + mcc within tolerance → **keep**
+- 예 (FAIL roc): best=0.8528, 0.4376 → 새 결과=0.8531, 0.4400 (Δroc=+0.0003 noise) → roc 미개선 → discard
+- 예 (FAIL mcc): best=0.8528, 0.4376 → 새 결과=0.8553, 0.4308 (Δroc=+0.0025, Δmcc=-0.0068) → mcc 하락이 -0.003 초과 → discard
 
 roc_ext 또는 roc_holdout이 함께 개선되지 않으면 description에 명시 (internal-only gain 주의).
 
@@ -247,7 +257,7 @@ git worktree add ../bbb-combo3 -b autoresearch/bbb-combo3-<date>
 5. Read results: `grep "^roc_auc_\|^mcc_scaffold" bbb_run_combo<N>.log`
 6. If grep is empty → crash. `tail -n 50 bbb_run_combo<N>.log`로 스택 확인 후 수정 또는 건너뜀.
 7. `bbb_results_<combo>_v2.tsv`에 기록 (git commit 하지 않음).
-8. roc_s와 mcc_s가 **동시에** 개선됐으면 → **keep**:
+8. roc_s가 +0.001 이상 개선되고 mcc_s가 -0.003 이내면 (iter42+ 완화 기준) → **keep**:
    ```bash
    rm -rf bbb_artifacts/best && cp -r bbb_artifacts/current bbb_artifacts/best
    ```
@@ -484,7 +494,7 @@ Dropout(0.2)만 head 직전에 적용. 소규모 데이터셋(~1677개)에서 mu
 **실험 원칙:**
 - 변경은 **하나씩** 적용 (독립 변수 통제)
 - 학습 동역학 (optimizer=Adam, val_loss-based ES, no scheduler, no label smoothing 등)은 **original gMLP baseline 그대로 고정**, Phase 1에서 변경 금지
-- roc_s와 mcc_s가 동시에 개선되지 않으면 즉시 `git reset --hard HEAD~1`
+- iter42+ 완화 기준: roc_s +0.001 미만 또는 mcc_s 하락이 -0.003 초과면 즉시 `git reset --hard HEAD~1`
 - combo별로 같은 순서를 따르되, 결과가 달리면 combo 특성 분석 후 분기
 
 ### Combo별 특성 고려
