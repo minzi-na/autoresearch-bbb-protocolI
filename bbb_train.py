@@ -87,10 +87,9 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    """iter69: iter52 + multi-axis local within-group token mixing.
-    Global path: cross-modal attention on all 4 tokens (iter52 unchanged).
-    Local path: within-group 2-token Linear mixing (groups: [maccs,avalon],
-    [rdkit,mole]). Residual combine with zero-init alpha (identity start).
+    """iter52: iter90-style enhanced attention SGU.
+    Pre-norm u+v, Q/K/V proj with V identity init, learnable log-temperature,
+    diagonal-mask (force cross-modal), attention dropout.
     """
     def __init__(self, d_ffn, seq_len, attn_drop=0.1):
         super().__init__()
@@ -104,32 +103,22 @@ class SpatialGatingUnit(nn.Module):
         nn.init.zeros_(self.v_proj.bias)
         self.log_temp  = nn.Parameter(torch.tensor(-0.5 * math.log(d_ffn)))
         self.attn_drop = nn.Dropout(attn_drop)
-        # iter69: within-group token mixing (shared 2x2 across groups)
-        self.local_mix = nn.Linear(2, 2, bias=False)
-        nn.init.eye_(self.local_mix.weight)            # identity init
-        self.local_alpha = nn.Parameter(torch.zeros(1))  # zero init -> baseline
 
     def forward(self, x):
         u, v = x.chunk(2, dim=-1)
         u = self.norm_u(u)
         v = self.norm_v(v)
-        # Global path: cross-modal attention (iter52)
         Q = self.q_proj(v)
         K = self.k_proj(v)
         V = self.v_proj(v)
         scores = (Q @ K.transpose(-1, -2)) * self.log_temp.exp()
+        # diagonal mask: force cross-modal attention only
         seq_len = scores.size(-1)
         diag = torch.eye(seq_len, device=scores.device, dtype=torch.bool)
         scores = scores.masked_fill(diag.unsqueeze(0), float('-inf'))
         attn = torch.softmax(scores, dim=-1)
         attn = self.attn_drop(attn)
-        v_global = attn @ V
-        # Local path: within-group 2-token mixing on v
-        # reshape (B, 4, d_ffn) -> (B, 2 groups, 2 tokens, d_ffn)
-        v_groups = v.unflatten(1, (2, 2))
-        v_local = self.local_mix(v_groups.transpose(-1, -2)).transpose(-1, -2)
-        v_local = v_local.flatten(1, 2)                # (B, 4, d_ffn)
-        v_out = v_global + self.local_alpha * v_local
+        v_out = attn @ V
         return u * v_out
 
 
