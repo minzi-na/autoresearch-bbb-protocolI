@@ -193,6 +193,10 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.drop = nn.Dropout(dropout)
         # iter55: skip connection sigmoid convex combine (init=0 → pure backbone)
         self.skip_gate = nn.Parameter(torch.zeros(1))
+        # iter74: gated cross-attention pooling (convex combine with existing α-pool)
+        self.q_pool = nn.Parameter(torch.zeros(d_model))      # learnable query
+        self.cross_pool_gate = nn.Parameter(torch.zeros(1))   # sigmoid gate, init=0.5
+        self._d_model = d_model
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -205,7 +209,13 @@ class MultiModalGMLPFromFlat(nn.Module):
         X = (1.0 - gate) * X + gate * X0
         if self.use_gated_pool:
             w  = torch.softmax(self.alpha, dim=0)
-            Xp = (X * w.view(1, -1, 1)).sum(dim=1)
+            Xp_gated = (X * w.view(1, -1, 1)).sum(dim=1)
+            # iter74: cross-attention pool (convex combine with existing gated pool)
+            scores = (X @ self.q_pool) / (self._d_model ** 0.5)   # (B, seq_len)
+            attn_w = torch.softmax(scores, dim=1)                  # (B, seq_len)
+            Xp_ca = (X * attn_w.unsqueeze(-1)).sum(dim=1)         # (B, d_model)
+            cgate = torch.sigmoid(self.cross_pool_gate)            # init = 0.5
+            Xp = (1.0 - cgate) * Xp_gated + cgate * Xp_ca
         else:
             Xp = X.mean(dim=1)
         Xp = self.drop(self.norm(Xp))
