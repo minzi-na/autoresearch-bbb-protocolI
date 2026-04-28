@@ -136,8 +136,10 @@ class gMLPBlock(nn.Module):
 class gMLP(nn.Module):
     def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4):
         super().__init__()
+        # iter21: linear-decay drop_path 0 -> 0.12
+        dp_rates = [0.12 * i / max(1, num_layers - 1) for i in range(num_layers)]
         self.model = nn.Sequential(
-            *[gMLPBlock(d_model, d_ffn, seq_len) for _ in range(num_layers)]
+            *[gMLPBlock(d_model, d_ffn, seq_len, drop_path=dp) for dp in dp_rates]
         )
 
     def forward(self, x):
