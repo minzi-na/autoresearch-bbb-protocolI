@@ -87,17 +87,39 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    def __init__(self, d_ffn, seq_len):
+    """iter52: iter90-style enhanced attention SGU.
+    Pre-norm u+v, Q/K/V proj with V identity init, learnable log-temperature,
+    diagonal-mask (force cross-modal), attention dropout.
+    """
+    def __init__(self, d_ffn, seq_len, attn_drop=0.1):
         super().__init__()
-        self.norm         = nn.LayerNorm(d_ffn)
-        self.spatial_proj = nn.Conv1d(seq_len, seq_len, kernel_size=1)
-        nn.init.constant_(self.spatial_proj.bias, 1.0)
+        import math
+        self.norm_u    = nn.LayerNorm(d_ffn)
+        self.norm_v    = nn.LayerNorm(d_ffn)
+        self.q_proj    = nn.Linear(d_ffn, d_ffn)
+        self.k_proj    = nn.Linear(d_ffn, d_ffn)
+        self.v_proj    = nn.Linear(d_ffn, d_ffn)
+        nn.init.eye_(self.v_proj.weight)
+        nn.init.zeros_(self.v_proj.bias)
+        self.log_temp  = nn.Parameter(torch.tensor(-0.5 * math.log(d_ffn)))
+        self.attn_drop = nn.Dropout(attn_drop)
 
     def forward(self, x):
         u, v = x.chunk(2, dim=-1)
-        v = self.norm(v)
-        v = self.spatial_proj(v)
-        return u * v
+        u = self.norm_u(u)
+        v = self.norm_v(v)
+        Q = self.q_proj(v)
+        K = self.k_proj(v)
+        V = self.v_proj(v)
+        scores = (Q @ K.transpose(-1, -2)) * self.log_temp.exp()
+        # diagonal mask: force cross-modal attention only
+        seq_len = scores.size(-1)
+        diag = torch.eye(seq_len, device=scores.device, dtype=torch.bool)
+        scores = scores.masked_fill(diag.unsqueeze(0), float('-inf'))
+        attn = torch.softmax(scores, dim=-1)
+        attn = self.attn_drop(attn)
+        v_out = attn @ V
+        return u * v_out
 
 
 class DropPath(nn.Module):
