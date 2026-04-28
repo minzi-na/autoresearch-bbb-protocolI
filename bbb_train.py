@@ -87,9 +87,10 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    """iter52: iter90-style enhanced attention SGU.
-    Pre-norm u+v, Q/K/V proj with V identity init, learnable log-temperature,
-    diagonal-mask (force cross-modal), attention dropout.
+    """iter72: iter52 + tiny attention add-on (aMLP pattern, complementary).
+    Existing diag-masked attention (cross-modal) is augmented with a tiny
+    32-d attention head that uses v directly as value (no separate V proj).
+    Sigmoid-gated convex add: gate=sigmoid(-3)≈0.05 at init → small disturbance.
     """
     def __init__(self, d_ffn, seq_len, attn_drop=0.1):
         super().__init__()
@@ -103,22 +104,36 @@ class SpatialGatingUnit(nn.Module):
         nn.init.zeros_(self.v_proj.bias)
         self.log_temp  = nn.Parameter(torch.tensor(-0.5 * math.log(d_ffn)))
         self.attn_drop = nn.Dropout(attn_drop)
+        # iter72: tiny attention add-on (low-dim Q/K, value = v itself)
+        d_tiny = 32
+        self.tiny_q = nn.Linear(d_ffn, d_tiny, bias=False)
+        self.tiny_k = nn.Linear(d_ffn, d_tiny, bias=False)
+        self.tiny_log_temp = nn.Parameter(torch.tensor(-0.5 * math.log(d_tiny)))
+        # gate logit init=-3 → sigmoid≈0.047 (small but non-zero so Q/K get gradient)
+        self.tiny_gate_logit = nn.Parameter(torch.tensor(-3.0))
 
     def forward(self, x):
         u, v = x.chunk(2, dim=-1)
         u = self.norm_u(u)
         v = self.norm_v(v)
+        # Main attention path (iter52)
         Q = self.q_proj(v)
         K = self.k_proj(v)
         V = self.v_proj(v)
         scores = (Q @ K.transpose(-1, -2)) * self.log_temp.exp()
-        # diagonal mask: force cross-modal attention only
         seq_len = scores.size(-1)
         diag = torch.eye(seq_len, device=scores.device, dtype=torch.bool)
         scores = scores.masked_fill(diag.unsqueeze(0), float('-inf'))
         attn = torch.softmax(scores, dim=-1)
         attn = self.attn_drop(attn)
         v_out = attn @ V
+        # iter72: tiny attention add-on (no diag mask, content-dependent)
+        qt = self.tiny_q(v)
+        kt = self.tiny_k(v)
+        tiny_scores = (qt @ kt.transpose(-1, -2)) * self.tiny_log_temp.exp()
+        tiny_attn = torch.softmax(tiny_scores, dim=-1)
+        v_tiny = tiny_attn @ v
+        v_out = v_out + torch.sigmoid(self.tiny_gate_logit) * v_tiny
         return u * v_out
 
 
