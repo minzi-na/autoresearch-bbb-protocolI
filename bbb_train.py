@@ -87,9 +87,10 @@ HOLDOUT_EMBED_PATHS = {
 # ---------------------------------------------------------------------------
 
 class SpatialGatingUnit(nn.Module):
-    """iter52: iter90-style enhanced attention SGU.
-    Pre-norm u+v, Q/K/V proj with V identity init, learnable log-temperature,
-    diagonal-mask (force cross-modal), attention dropout.
+    """iter75: iter52 + depthwise conv token mixing (CgMLP-lite).
+    Existing diag-masked attention output augmented with depthwise Conv1d
+    over token axis (kernel=3, padding=1) as residual. zero-init dw_alpha
+    keeps baseline identity at start; ~3K added params per SGU.
     """
     def __init__(self, d_ffn, seq_len, attn_drop=0.1):
         super().__init__()
@@ -103,6 +104,10 @@ class SpatialGatingUnit(nn.Module):
         nn.init.zeros_(self.v_proj.bias)
         self.log_temp  = nn.Parameter(torch.tensor(-0.5 * math.log(d_ffn)))
         self.attn_drop = nn.Dropout(attn_drop)
+        # iter75: depthwise conv on token (length) dim, per-channel kernel=3
+        self.dw_conv  = nn.Conv1d(d_ffn, d_ffn, kernel_size=3, padding=1,
+                                  groups=d_ffn, bias=False)
+        self.dw_alpha = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         u, v = x.chunk(2, dim=-1)
@@ -112,13 +117,16 @@ class SpatialGatingUnit(nn.Module):
         K = self.k_proj(v)
         V = self.v_proj(v)
         scores = (Q @ K.transpose(-1, -2)) * self.log_temp.exp()
-        # diagonal mask: force cross-modal attention only
         seq_len = scores.size(-1)
         diag = torch.eye(seq_len, device=scores.device, dtype=torch.bool)
         scores = scores.masked_fill(diag.unsqueeze(0), float('-inf'))
         attn = torch.softmax(scores, dim=-1)
         attn = self.attn_drop(attn)
         v_out = attn @ V
+        # iter75: depthwise conv on token axis (residual)
+        # v shape (B, seq_len, d_ffn). Conv1d expects (B, channels, length).
+        v_dw = self.dw_conv(v.transpose(1, 2)).transpose(1, 2)   # (B, seq_len, d_ffn)
+        v_out = v_out + self.dw_alpha * v_dw
         return u * v_out
 
 
