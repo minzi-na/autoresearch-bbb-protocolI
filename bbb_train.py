@@ -191,13 +191,18 @@ class MultiModalGMLPFromFlat(nn.Module):
             self.alpha = nn.Parameter(torch.zeros(self.seq_len))
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
+        # iter55: skip connection sigmoid convex combine (init=0 → pure backbone)
+        self.skip_gate = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
         tokens = [self.proj[name](chunk)
                   for name, chunk in zip(self.mod_names, chunks)]
-        X = torch.stack(tokens, dim=1)          # (B, seq_len, d_model)
-        X = self.backbone(X)
+        X0 = torch.stack(tokens, dim=1)         # (B, seq_len, d_model) - pre-backbone
+        X = self.backbone(X0)
+        # iter55: sigmoid convex combine — init=0 → pure backbone, learns to mix in X0
+        gate = torch.sigmoid(self.skip_gate)
+        X = (1.0 - gate) * X + gate * X0
         if self.use_gated_pool:
             w  = torch.softmax(self.alpha, dim=0)
             Xp = (X * w.view(1, -1, 1)).sum(dim=1)
