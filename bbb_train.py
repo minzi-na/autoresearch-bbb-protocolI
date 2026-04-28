@@ -189,14 +189,6 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         if use_gated_pool:
             self.alpha = nn.Parameter(torch.zeros(self.seq_len))
-            # iter67: hyper-network predicts per-molecule pooling weight delta
-            self.alpha_hyper = nn.Sequential(
-                nn.Linear(d_model, d_model // 4),
-                nn.GELU(),
-                nn.Linear(d_model // 4, self.seq_len),
-            )
-            nn.init.zeros_(self.alpha_hyper[-1].weight)
-            nn.init.zeros_(self.alpha_hyper[-1].bias)   # delta=0 at init -> reduces to baseline
         self.head = nn.Linear(d_model, 1)
         self.drop = nn.Dropout(dropout)
         # iter55: skip connection sigmoid convex combine (init=0 → pure backbone)
@@ -212,10 +204,8 @@ class MultiModalGMLPFromFlat(nn.Module):
         gate = torch.sigmoid(self.skip_gate)
         X = (1.0 - gate) * X + gate * X0
         if self.use_gated_pool:
-            ctx = X.mean(dim=1)                              # (B, d_model)
-            delta = self.alpha_hyper(ctx)                    # (B, seq_len), zero at init
-            w = torch.softmax(self.alpha + delta, dim=-1)   # (B, seq_len)
-            Xp = (X * w.unsqueeze(-1)).sum(dim=1)
+            w  = torch.softmax(self.alpha, dim=0)
+            Xp = (X * w.view(1, -1, 1)).sum(dim=1)
         else:
             Xp = X.mean(dim=1)
         Xp = self.drop(self.norm(Xp))
