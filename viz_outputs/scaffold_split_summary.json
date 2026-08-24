@@ -1,0 +1,63 @@
+{
+  "three_dataset_label_dist": {
+    "Internal (curated remaining)": {
+      "total": 1677,
+      "BBB-": 391,
+      "BBB+": 1286,
+      "pos_ratio": 0.7668
+    },
+    "External (cls-only remaining)": {
+      "total": 8109,
+      "BBB-": 2604,
+      "BBB+": 5505,
+      "pos_ratio": 0.6789
+    },
+    "Merged Holdout": {
+      "total": 1089,
+      "BBB-": 334,
+      "BBB+": 755,
+      "pos_ratio": 0.6933
+    }
+  },
+  "internal_scaffold_split_seed42": {
+    "Train": {
+      "total": 1342,
+      "BBB-": 328,
+      "BBB+": 1014,
+      "pos_ratio": 0.7556,
+      "n_scaffolds": 629
+    },
+    "Val": {
+      "total": 168,
+      "BBB-": 37,
+      "BBB+": 131,
+      "pos_ratio": 0.7798,
+      "n_scaffolds": 168
+    },
+    "Test": {
+      "total": 167,
+      "BBB-": 26,
+      "BBB+": 141,
+      "pos_ratio": 0.8443,
+      "n_scaffolds": 167
+    }
+  },
+  "scaffold_overlap": {
+    "n_unique_scaffolds": {
+      "train": 629,
+      "val": 168,
+      "test": 167
+    },
+    "intersection_counts": {
+      "train_val": 0,
+      "train_test": 0,
+      "val_test": 0,
+      "train_val_test": 0
+    },
+    "jaccard_similarity": {
+      "train_val": 0.0,
+      "train_test": 0.0,
+      "val_test": 0.0
+    }
+  }
+}

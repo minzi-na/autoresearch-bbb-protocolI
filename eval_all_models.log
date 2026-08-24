@@ -1,0 +1,155 @@
+Evaluating: ['iter90_pw008', 'iter90_p2_auto', 'iter90_base_auto', 'iter55_base_auto']
+
+Loading datasets...
+  [cache] Loading internal from /home/minji/bbb-combo1/dataset_cache/internal.pt
+  [cache] Loading external from /home/minji/bbb-combo1/dataset_cache/external.pt
+  [cache] Loading holdout from /home/minji/bbb-combo1/dataset_cache/holdout.pt
+  internal=1677  external=8109  holdout=1089
+
+============================================================
+  iter90_pw008
+============================================================
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed=  42  int_auc=0.8610  mcc=0.4556  f1=0.8881  acc=0.8204
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 100  int_auc=0.8793  mcc=0.4679  f1=0.9187  acc=0.8623
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 200  int_auc=0.8763  mcc=0.4920  f1=0.9091  acc=0.8503
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 300  int_auc=0.8736  mcc=0.4262  f1=0.9071  acc=0.8443
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 400  int_auc=0.8457  mcc=0.3676  f1=0.8873  acc=0.8144
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 500  int_auc=0.9025  mcc=0.4183  f1=0.9204  acc=0.8623
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 600  int_auc=0.8717  mcc=0.3784  f1=0.8913  acc=0.8204
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 700  int_auc=0.8842  mcc=0.4676  f1=0.9231  acc=0.8683
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 800  int_auc=0.8888  mcc=0.4281  f1=0.8938  acc=0.8263
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 900  int_auc=0.9017  mcc=0.4676  f1=0.9231  acc=0.8683
+
+  [Internal 10-seed mean]  roc_auc=0.8785  mcc=0.4369  f1=0.9062  acc=0.8437
+  [Internal 10-seed std ]  roc_auc=0.0165  mcc=0.0387  f1=0.0141  acc=0.0205
+  [External soft-voting]   roc_auc=0.7779  mcc=0.2730  f1=0.5090  acc=0.5325
+  [Holdout  soft-voting]   roc_auc=0.8170  mcc=0.3237  f1=0.5945  acc=0.5803
+
+============================================================
+  iter90_p2_auto
+============================================================
+  seed=  42  int_auc=0.8648  mcc=0.4012  f1=0.9167  acc=0.8563
+  seed= 100  int_auc=0.8411  mcc=0.3684  f1=0.9220  acc=0.8623
+  seed= 200  int_auc=0.8463  mcc=0.4349  f1=0.9199  acc=0.8623
+  seed= 300  int_auc=0.8782  mcc=0.3833  f1=0.9172  acc=0.8563
+  seed= 400  int_auc=0.8335  mcc=0.4183  f1=0.9204  acc=0.8623
+  seed= 500  int_auc=0.8681  mcc=0.4775  f1=0.9315  acc=0.8802
+  seed= 600  int_auc=0.8408  mcc=0.5005  f1=0.9352  acc=0.8862
+  seed= 700  int_auc=0.8744  mcc=0.5257  f1=0.9388  acc=0.8922
+  seed= 800  int_auc=0.8880  mcc=0.4775  f1=0.9315  acc=0.8802
+  seed= 900  int_auc=0.8872  mcc=0.3521  f1=0.9226  acc=0.8623
+
+  [Internal 10-seed mean]  roc_auc=0.8622  mcc=0.4339  f1=0.9256  acc=0.8701
+  [Internal 10-seed std ]  roc_auc=0.0193  mcc=0.0561  f1=0.0075  acc=0.0126
+  [External soft-voting]   roc_auc=0.7788  mcc=0.3438  f1=0.7038  acc=0.6552
+  [Holdout  soft-voting]   roc_auc=0.8155  mcc=0.4148  f1=0.7568  acc=0.7025
+
+============================================================
+  iter90_base_auto
+============================================================
+  seed=  42  int_auc=0.8703  mcc=0.4012  f1=0.9167  acc=0.8563
+  seed= 100  int_auc=0.8198  mcc=0.3469  f1=0.9184  acc=0.8563
+  seed= 200  int_auc=0.8457  mcc=0.4520  f1=0.9236  acc=0.8683
+  seed= 300  int_auc=0.8766  mcc=0.3833  f1=0.9172  acc=0.8563
+  seed= 400  int_auc=0.8327  mcc=0.4366  f1=0.9241  acc=0.8683
+  seed= 500  int_auc=0.8738  mcc=0.5109  f1=0.9347  acc=0.8862
+  seed= 600  int_auc=0.8447  mcc=0.5005  f1=0.9352  acc=0.8862
+  seed= 700  int_auc=0.8793  mcc=0.5257  f1=0.9388  acc=0.8922
+  seed= 800  int_auc=0.8850  mcc=0.4661  f1=0.9320  acc=0.8802
+  seed= 900  int_auc=0.8856  mcc=0.3921  f1=0.9257  acc=0.8683
+
+  [Internal 10-seed mean]  roc_auc=0.8614  mcc=0.4415  f1=0.9266  acc=0.8719
+  [Internal 10-seed std ]  roc_auc=0.0224  mcc=0.0570  f1=0.0077  acc=0.0129
+  [External soft-voting]   roc_auc=0.7788  mcc=0.3447  f1=0.7016  acc=0.6540
+  [Holdout  soft-voting]   roc_auc=0.8163  mcc=0.4188  f1=0.7583  acc=0.7043
+
+============================================================
+  iter55_base_auto
+============================================================
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed=  42  int_auc=0.8602  mcc=0.3663  f1=0.9135  acc=0.8503
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 100  int_auc=0.8539  mcc=0.4214  f1=0.9247  acc=0.8683
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 200  int_auc=0.8496  mcc=0.5431  f1=0.9379  acc=0.8922
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 300  int_auc=0.8763  mcc=0.4427  f1=0.9283  acc=0.8743
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 400  int_auc=0.8201  mcc=0.4366  f1=0.9241  acc=0.8683
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 500  int_auc=0.8918  mcc=0.5109  f1=0.9347  acc=0.8862
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 600  int_auc=0.8523  mcc=0.4366  f1=0.9241  acc=0.8683
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 700  int_auc=0.8752  mcc=0.4917  f1=0.9356  acc=0.8862
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 800  int_auc=0.8798  mcc=0.5005  f1=0.9352  acc=0.8862
+/home/minji/anaconda3/lib/python3.12/site-packages/sklearn/base.py:318: UserWarning: Trying to unpickle estimator StandardScaler from version 1.6.1 when using version 1.2.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+  seed= 900  int_auc=0.8880  mcc=0.4214  f1=0.9247  acc=0.8683
+
+  [Internal 10-seed mean]  roc_auc=0.8647  mcc=0.4571  f1=0.9283  acc=0.8749
+  [Internal 10-seed std ]  roc_auc=0.0206  mcc=0.0502  f1=0.0072  acc=0.0121
+  [External soft-voting]   roc_auc=0.7787  mcc=0.3280  f1=0.6734  acc=0.6328
+  [Holdout  soft-voting]   roc_auc=0.8171  mcc=0.3892  f1=0.7276  acc=0.6768
+
+====================================================================================================
+  SUMMARY
+====================================================================================================
+Model                  |  Int AUC  Int MCC  Int F1  Int ACC |  Ext AUC  Ext MCC  Ext F1  Ext ACC |  Hold AUC  Hold MCC  Hold F1  Hold ACC
+-----------------------------------------------------------------------------------------------------------------------------------------
+iter90_pw008           |   0.8785   0.4369  0.9062   0.8437 |   0.7779   0.2730  0.5090   0.5325 |    0.8170    0.3237   0.5945    0.5803
+iter90_p2_auto         |   0.8622   0.4339  0.9256   0.8701 |   0.7788   0.3438  0.7038   0.6552 |    0.8155    0.4148   0.7568    0.7025
+iter90_base_auto       |   0.8614   0.4415  0.9266   0.8719 |   0.7788   0.3447  0.7016   0.6540 |    0.8163    0.4188   0.7583    0.7043
+iter55_base_auto       |   0.8647   0.4571  0.9283   0.8749 |   0.7787   0.3280  0.6734   0.6328 |    0.8171    0.3892   0.7276    0.6768
+
+Results saved to /home/minji/bbb-combo1/eval_all_models_results.json

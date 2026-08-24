@@ -1,0 +1,27 @@
+Loading internal dataset...
+  [cache] Loading internal from /home/minji/bbb-combo1/dataset_cache/internal.pt
+Internal : 1677 samples
+Loading external dataset...
+  [cache] Loading external from /home/minji/bbb-combo1/dataset_cache/external.pt
+External : 8109 samples
+Loading holdout dataset...
+  [cache] Loading holdout from /home/minji/bbb-combo1/dataset_cache/holdout.pt
+Holdout  : 1089 samples
+
+Retraining with Phase 2 best hparams -> /home/minji/bbb-combo1/bbb_artifacts/phase2_best
+  seed=  42  int=0.8610  ext=0.7700  holdout=0.8066
+  seed= 100  int=0.8793  ext=0.7708  holdout=0.8111
+  seed= 200  int=0.8763  ext=0.7740  holdout=0.8098
+  seed= 300  int=0.8736  ext=0.7679  holdout=0.8067
+  seed= 400  int=0.8457  ext=0.7703  holdout=0.8196
+  seed= 500  int=0.9025  ext=0.7658  holdout=0.8059
+  seed= 600  int=0.8717  ext=0.7663  holdout=0.8057
+  seed= 700  int=0.8842  ext=0.7666  holdout=0.8061
+  seed= 800  int=0.8888  ext=0.7640  holdout=0.8051
+  seed= 900  int=0.9017  ext=0.7722  holdout=0.8073
+
+  [ensemble] ext=0.7779  holdout=0.8170
+  [mean internal] roc_s=0.87848
+
+Models saved to: /home/minji/bbb-combo1/bbb_artifacts/phase2_best
+

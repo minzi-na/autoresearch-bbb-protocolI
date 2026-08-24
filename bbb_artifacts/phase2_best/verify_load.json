@@ -1,0 +1,11 @@
+{
+  "variant": "phase2_best",
+  "arch_source": "snapshot 88fdf45 (07_phase2_hpo_final__88fdf45__bbb_train.py)",
+  "tolerance": 0.0001,
+  "comparisons_checked": 53,
+  "internal_per_seed_mean": 0.87848,
+  "external_ensemble": 0.7779,
+  "holdout_ensemble": 0.817,
+  "passed": true,
+  "failures": []
+}

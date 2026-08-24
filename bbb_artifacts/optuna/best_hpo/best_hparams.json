@@ -1,0 +1,24 @@
+{
+  "trial_number": 0,
+  "objective_value": 0.8820799999999999,
+  "params": {
+    "dropout": 0.046019393915327604,
+    "lr": 0.00011022334100107642,
+    "weight_decay": 3.88007962016146e-06,
+    "warmup_epochs": 0
+  },
+  "reevaluation": {
+    "trial_number": 0,
+    "objective_value": 0.8820799999999999,
+    "params": {
+      "dropout": 0.046019393915327604,
+      "lr": 0.00011022334100107642,
+      "weight_decay": 3.88007962016146e-06,
+      "warmup_epochs": 0
+    },
+    "roc_auc_scaffold": 0.87848,
+    "roc_auc_external": 0.7779,
+    "roc_auc_holdout": 0.817,
+    "n_seeds": 10
+  }
+}

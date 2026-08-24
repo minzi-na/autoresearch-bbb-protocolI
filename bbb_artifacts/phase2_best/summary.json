@@ -1,0 +1,18 @@
+{
+  "roc_auc_scaffold_mean": 0.87848,
+  "roc_auc_external_ensemble": 0.7779,
+  "roc_auc_holdout_ensemble": 0.817,
+  "hparams": {
+    "dropout": 0.046019393915327604,
+    "lr": 0.00011022334100107642,
+    "weight_decay": 3.88007962016146e-06,
+    "d_model": 512,
+    "d_ffn": 1048,
+    "depth": 4,
+    "batch_size": 128,
+    "num_epochs": 50,
+    "patience": 10,
+    "pos_weight": 0.08,
+    "stochastic_depth_rate": 0.05
+  }
+}

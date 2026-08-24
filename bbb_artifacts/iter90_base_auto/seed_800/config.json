@@ -1,0 +1,35 @@
+{
+  "seed": 800,
+  "split_mode": "scaffold",
+  "fp_types": [
+    "maccs",
+    "avalon",
+    "rdkit",
+    "mole"
+  ],
+  "mod_dims": {
+    "maccs": 166,
+    "avalon": 512,
+    "rdkit": 217,
+    "mole": 768
+  },
+  "hparams": {
+    "dropout": 0.1,
+    "lr": 0.0001,
+    "weight_decay": 1e-05,
+    "d_model": 512,
+    "d_ffn": 1048,
+    "depth": 4,
+    "batch_size": 128,
+    "num_epochs": 50,
+    "patience": 10,
+    "stochastic_depth_rate": 0.05,
+    "pos_weight": "auto"
+  },
+  "pos_weight_used": 0.323471,
+  "metrics": {
+    "roc_auc_scaffold": 0.885,
+    "roc_auc_external": 0.7746,
+    "roc_auc_holdout": 0.8134
+  }
+}

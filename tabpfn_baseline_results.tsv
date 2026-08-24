@@ -1,0 +1,10 @@
+config	split	roc_auc	f1	mcc	accuracy
+maccs	int	0.8471	0.917	0.2754	0.8515
+maccs	ext	0.8001	0.8436	0.493	0.7835
+maccs	holdout	0.8206	0.8525	0.5035	0.7925
+rdkit	int	0.8435	0.927	0.3839	0.8695
+rdkit	ext	0.7644	0.8015	0.3964	0.7335
+rdkit	holdout	0.8013	0.8352	0.4523	0.7695
+maccs+rdkit	int	0.8585	0.9258	0.3764	0.8677
+maccs+rdkit	ext	0.7774	0.8023	0.4111	0.7371
+maccs+rdkit	holdout	0.8017	0.8295	0.4366	0.7622

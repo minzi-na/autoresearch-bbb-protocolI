@@ -1,0 +1,44 @@
+Loading internal dataset...
+  [cache] Loading internal from /home/minji/bbb-combo1/dataset_cache/internal.pt
+Internal : 1677 samples, feature_dim=1663
+Loading external dataset...
+  [cache] Loading external from /home/minji/bbb-combo1/dataset_cache/external.pt
+External : 8109 samples
+Loading holdout dataset...
+  [cache] Loading holdout from /home/minji/bbb-combo1/dataset_cache/holdout.pt
+Holdout  : 1089 samples
+Mod dims : {'maccs': 166, 'avalon': 512, 'rdkit': 217, 'mole': 768}
+Split    : scaffold, Seeds: [42, 100, 200, 300, 400, 500, 600, 700, 800, 900]
+BASE_CONFIG: {'d_model': 512, 'd_ffn': 1048, 'depth': 4, 'dropout': 0.2, 'lr': 0.0001, 'weight_decay': 1e-05, 'num_epochs': 50, 'patience': 10, 'batch_size': 128}
+
+============================================================
+Evaluating | split_mode=scaffold | n_seeds=10
+============================================================
+  seed=  42  int=0.8586  ext=0.7689  holdout=0.8010
+  seed= 100  int=0.8474  ext=0.7673  holdout=0.8108
+  seed= 200  int=0.8662  ext=0.7630  holdout=0.8074
+  seed= 300  int=0.8507  ext=0.7723  holdout=0.8113
+  seed= 400  int=0.8471  ext=0.7800  holdout=0.8158
+  seed= 500  int=0.8768  ext=0.7724  holdout=0.8080
+  seed= 600  int=0.8357  ext=0.7685  holdout=0.8154
+  seed= 700  int=0.8482  ext=0.7631  holdout=0.7993
+  seed= 800  int=0.8681  ext=0.7703  holdout=0.8069
+  seed= 900  int=0.8703  ext=0.7688  holdout=0.8136
+
+Mean  int=0.8569  ext=0.7784  holdout=0.8170
+[internal] mcc=0.4382  f1=0.9272  acc=0.8725
+[holdout]  mcc=0.4004  f1=0.7350  acc=0.6841
+
+---
+roc_auc_scaffold:    0.856910
+roc_auc_external:    0.778387
+roc_auc_holdout:     0.817036
+mcc_scaffold:        0.438220
+f1_scaffold:         0.927230
+acc_scaffold:        0.872470
+mcc_holdout:         0.400427
+f1_holdout:          0.734977
+acc_holdout:         0.684114
+total_seconds:       54.5
+peak_vram_mb:        537.0
+n_seeds:             10

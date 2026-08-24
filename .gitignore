@@ -24,3 +24,11 @@ results.tsv
 
 # Per-iteration TSV log (manual append; preserved across git reset --hard)
 bbb_results_combo1_v2.tsv
+
+# Model weights and fitted scalers (archived to Zenodo, not in git)
+*.pth
+*.pt
+*.pkl
+*.npz
+dataset_cache/
+.codex

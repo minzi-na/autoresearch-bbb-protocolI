@@ -1,0 +1,110 @@
+[
+  {
+    "model": "iter90_pw008",
+    "int_mean": {
+      "roc_auc": 0.8785,
+      "mcc": 0.4369,
+      "f1": 0.9062,
+      "accuracy": 0.8437
+    },
+    "int_std": {
+      "roc_auc": 0.0165,
+      "mcc": 0.0387,
+      "f1": 0.0141,
+      "accuracy": 0.0205
+    },
+    "ext": {
+      "roc_auc": 0.7779,
+      "mcc": 0.273,
+      "f1": 0.509,
+      "accuracy": 0.5325
+    },
+    "holdout": {
+      "roc_auc": 0.817,
+      "mcc": 0.3237,
+      "f1": 0.5945,
+      "accuracy": 0.5803
+    }
+  },
+  {
+    "model": "iter90_p2_auto",
+    "int_mean": {
+      "roc_auc": 0.8622,
+      "mcc": 0.4339,
+      "f1": 0.9256,
+      "accuracy": 0.8701
+    },
+    "int_std": {
+      "roc_auc": 0.0193,
+      "mcc": 0.0561,
+      "f1": 0.0075,
+      "accuracy": 0.0126
+    },
+    "ext": {
+      "roc_auc": 0.7788,
+      "mcc": 0.3438,
+      "f1": 0.7038,
+      "accuracy": 0.6552
+    },
+    "holdout": {
+      "roc_auc": 0.8155,
+      "mcc": 0.4148,
+      "f1": 0.7568,
+      "accuracy": 0.7025
+    }
+  },
+  {
+    "model": "iter90_base_auto",
+    "int_mean": {
+      "roc_auc": 0.8614,
+      "mcc": 0.4415,
+      "f1": 0.9266,
+      "accuracy": 0.8719
+    },
+    "int_std": {
+      "roc_auc": 0.0224,
+      "mcc": 0.057,
+      "f1": 0.0077,
+      "accuracy": 0.0129
+    },
+    "ext": {
+      "roc_auc": 0.7788,
+      "mcc": 0.3447,
+      "f1": 0.7016,
+      "accuracy": 0.654
+    },
+    "holdout": {
+      "roc_auc": 0.8163,
+      "mcc": 0.4188,
+      "f1": 0.7583,
+      "accuracy": 0.7043
+    }
+  },
+  {
+    "model": "iter55_base_auto",
+    "int_mean": {
+      "roc_auc": 0.8647,
+      "mcc": 0.4571,
+      "f1": 0.9283,
+      "accuracy": 0.8749
+    },
+    "int_std": {
+      "roc_auc": 0.0206,
+      "mcc": 0.0502,
+      "f1": 0.0072,
+      "accuracy": 0.0121
+    },
+    "ext": {
+      "roc_auc": 0.7787,
+      "mcc": 0.328,
+      "f1": 0.6734,
+      "accuracy": 0.6328
+    },
+    "holdout": {
+      "roc_auc": 0.8171,
+      "mcc": 0.3892,
+      "f1": 0.7276,
+      "accuracy": 0.6768
+    }
+  }
+]

@@ -1,0 +1,79 @@
+[I 2026-04-15 18:23:19,547] A new study created in RDB with name: bbb_hpo_combo1_p2r_v40_warmup
+[I 2026-04-15 18:23:50,785] Trial 0 finished with value: 0.8820799999999999 and parameters: {'dropout': 0.046019393915327604, 'lr': 0.00011022334100107642, 'weight_decay': 3.88007962016146e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:24:16,157] Trial 1 finished with value: 0.8341399999999999 and parameters: {'dropout': 0.046019393915327604, 'lr': 0.00011022334100107642, 'weight_decay': 3.88007962016146e-06, 'warmup_epochs': 3}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:24:42,563] Trial 2 finished with value: 0.8706200000000001 and parameters: {'dropout': 0.043108904159657686, 'lr': 0.00013195672887456988, 'weight_decay': 6.4963857395405716e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:25:09,820] Trial 3 finished with value: 0.8232200000000001 and parameters: {'dropout': 0.03545980821176709, 'lr': 8.731498535965331e-05, 'weight_decay': 8.062340576073847e-06, 'warmup_epochs': 3}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:25:37,557] Trial 4 finished with value: 0.8695999999999999 and parameters: {'dropout': 0.030720457300353086, 'lr': 0.00013313376414764795, 'weight_decay': 7.636290331793742e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:26:05,472] Trial 5 finished with value: 0.87684 and parameters: {'dropout': 0.03641915784487018, 'lr': 9.784659298215733e-05, 'weight_decay': 4.6539209363899225e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:26:10,986] Trial 6 pruned. 
+[I 2026-04-15 18:26:36,840] Trial 7 finished with value: 0.8764600000000001 and parameters: {'dropout': 0.05748115864875548, 'lr': 9.322585010104452e-05, 'weight_decay': 4.575772704489179e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:26:42,393] Trial 8 pruned. 
+[I 2026-04-15 18:27:08,208] Trial 9 finished with value: 0.8775999999999999 and parameters: {'dropout': 0.05829390718407614, 'lr': 9.786341198343441e-05, 'weight_decay': 2.3404527272255607e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:27:34,068] Trial 10 finished with value: 0.87608 and parameters: {'dropout': 0.03427133821956726, 'lr': 0.00010688267554396611, 'weight_decay': 2.113812882809406e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:27:59,991] Trial 11 finished with value: 0.8774200000000001 and parameters: {'dropout': 0.05318827995238937, 'lr': 9.818526295341431e-05, 'weight_decay': 4.618935978515324e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:28:05,088] Trial 12 pruned. 
+[I 2026-04-15 18:28:10,594] Trial 13 pruned. 
+[I 2026-04-15 18:28:36,372] Trial 14 pruned. 
+[I 2026-04-15 18:29:05,847] Trial 15 finished with value: 0.8816200000000001 and parameters: {'dropout': 0.05801666741797869, 'lr': 0.00010959821836919182, 'weight_decay': 2.8158376276072375e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:29:33,108] Trial 16 finished with value: 0.8766 and parameters: {'dropout': 0.04054297519193037, 'lr': 0.00011012821142039089, 'weight_decay': 3.4295338660826706e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:29:59,398] Trial 17 pruned. 
+[I 2026-04-15 18:30:26,283] Trial 18 finished with value: 0.8773 and parameters: {'dropout': 0.04894515697077818, 'lr': 0.00010489891463436745, 'weight_decay': 3.050351045765672e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:30:52,904] Trial 19 finished with value: 0.8770199999999999 and parameters: {'dropout': 0.06027980347975224, 'lr': 0.00011751062169405526, 'weight_decay': 2.6298566834050436e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:31:19,761] Trial 20 finished with value: 0.87754 and parameters: {'dropout': 0.05457990710063018, 'lr': 0.00011369162651507905, 'weight_decay': 4.008173097575395e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:31:46,302] Trial 21 finished with value: 0.87776 and parameters: {'dropout': 0.058574258324044004, 'lr': 0.00010288911807098642, 'weight_decay': 2.444312101614001e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:32:13,055] Trial 22 pruned. 
+[I 2026-04-15 18:32:18,364] Trial 23 pruned. 
+[I 2026-04-15 18:32:45,196] Trial 24 pruned. 
+[I 2026-04-15 18:32:50,517] Trial 25 pruned. 
+[I 2026-04-15 18:33:17,620] Trial 26 pruned. 
+[I 2026-04-15 18:33:23,003] Trial 27 pruned. 
+[I 2026-04-15 18:33:50,012] Trial 28 finished with value: 0.8775999999999999 and parameters: {'dropout': 0.06120858474245931, 'lr': 0.00010647772166740847, 'weight_decay': 2.006262055736743e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:33:55,338] Trial 29 pruned. 
+[I 2026-04-15 18:34:22,416] Trial 30 finished with value: 0.87734 and parameters: {'dropout': 0.05422042081444321, 'lr': 0.00011564087558155635, 'weight_decay': 3.5606890957342336e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:34:27,769] Trial 31 pruned. 
+[I 2026-04-15 18:34:33,129] Trial 32 pruned. 
+[I 2026-04-15 18:35:00,140] Trial 33 finished with value: 0.8771799999999998 and parameters: {'dropout': 0.05563032692030203, 'lr': 0.00010488128853885821, 'weight_decay': 2.402452912352406e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:35:27,140] Trial 34 finished with value: 0.8777600000000001 and parameters: {'dropout': 0.05912838721899919, 'lr': 0.00010845181539415643, 'weight_decay': 3.169738727518805e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:35:54,169] Trial 35 pruned. 
+[I 2026-04-15 18:35:59,537] Trial 36 pruned. 
+[I 2026-04-15 18:36:26,647] Trial 37 finished with value: 0.8772400000000001 and parameters: {'dropout': 0.06169389837785067, 'lr': 0.00011302331265965384, 'weight_decay': 3.67051126995051e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:36:53,747] Trial 38 pruned. 
+[I 2026-04-15 18:36:59,515] Trial 39 pruned. 
+[I 2026-04-15 18:37:26,548] Trial 40 finished with value: 0.8774999999999998 and parameters: {'dropout': 0.05085838235415454, 'lr': 0.00010429695634222798, 'weight_decay': 3.7988024286396957e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:37:53,598] Trial 41 finished with value: 0.87782 and parameters: {'dropout': 0.05927670737910837, 'lr': 9.986875865709374e-05, 'weight_decay': 2.1510978893677422e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:38:20,726] Trial 42 finished with value: 0.87828 and parameters: {'dropout': 0.05967153670393932, 'lr': 0.00010019954567872499, 'weight_decay': 2.1079257320409785e-06, 'warmup_epochs': 0}. Best is trial 0 with value: 0.8820799999999999.
+[I 2026-04-15 18:38:26,081] Trial 43 pruned. 
+[I 2026-04-15 18:38:31,393] Trial 44 pruned. 
+[I 2026-04-15 18:38:58,445] Trial 45 pruned. 
+[I 2026-04-15 18:39:03,770] Trial 46 pruned. 
+[I 2026-04-15 18:39:09,137] Trial 47 pruned. 
+[I 2026-04-15 18:39:14,484] Trial 48 pruned. 
+[I 2026-04-15 18:39:19,825] Trial 49 pruned. 
+
+=================================================================
+  BBB HPO Phase 2 — combo1 (maccs+avalon+rdkit+mole)
+=================================================================
+  Fixed: pos_weight=0.08, grad_clip=1.0, stoch_depth=0.05, label_sm=0.0
+  run40 (FINAL): linear warmup [0,3 epochs] + constant LR
+  Objective seeds : [200, 400, 500, 700, 900]  (5-seed calibrated)
+  Reeval seeds    : [42, 100, 200, 300, 400, 500, 600, 700, 800, 900]
+  n_trials        : 50
+
+  [cache] Loading internal from /home/minji/bbb-combo1/dataset_cache/internal.pt
+  [cache] Loading external from /home/minji/bbb-combo1/dataset_cache/external.pt
+  [cache] Loading holdout from /home/minji/bbb-combo1/dataset_cache/holdout.pt
+Internal : 1677 samples
+External : 8109 samples
+Holdout  : 1089 samples
+Mod dims : {'maccs': 166, 'avalon': 512, 'rdkit': 217, 'mole': 768}
+
+---
+best_val_roc_auc:         0.882080
+best_trial:               0
+total_trials:             50
+best_external_roc_auc:    0.777900
+best_holdout_roc_auc:     0.817000
+reeval_n_seeds:           10
+total_seconds:            1162.7
+peak_vram_mb:             536.5
+

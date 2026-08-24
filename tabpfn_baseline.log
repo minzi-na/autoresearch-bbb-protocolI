@@ -1,0 +1,96 @@
+
+============================================================
+  Feature config: maccs  (maccs)
+============================================================
+Loading internal dataset...
+  internal: 1677 samples, 166 features
+Loading external dataset...
+  external: 8109 samples
+Loading holdout dataset...
+  holdout:  1089 samples
+  seed=  42  int=0.8425  ext=0.7980
+  seed= 100  int=0.8298  ext=0.7978
+  seed= 200  int=0.8425  ext=0.8014
+  seed= 300  int=0.8528  ext=0.8000
+  seed= 400  int=0.8477  ext=0.8005
+  seed= 500  int=0.8466  ext=0.7968
+  seed= 600  int=0.8479  ext=0.7997
+  seed= 700  int=0.8577  ext=0.7997
+  seed= 800  int=0.8561  ext=0.7990
+  seed= 900  int=0.8479  ext=0.7985
+
+  --- maccs Results ---
+  Internal (10-seed mean):
+    roc_auc=0.8471  f1=0.9170  mcc=0.2754  acc=0.8515
+  External (soft voting):
+    roc_auc=0.8001  f1=0.8436  mcc=0.4930  acc=0.7835
+  Holdout (soft voting):
+    roc_auc=0.8206  f1=0.8525  mcc=0.5035  acc=0.7925
+
+============================================================
+  Feature config: rdkit  (rdkit)
+============================================================
+Loading internal dataset...
+  internal: 1677 samples, 217 features
+Loading external dataset...
+  external: 8109 samples
+Loading holdout dataset...
+  holdout:  1089 samples
+  seed=  42  int=0.8481  ext=0.7606
+  seed= 100  int=0.8412  ext=0.7650
+  seed= 200  int=0.8466  ext=0.7643
+  seed= 300  int=0.8433  ext=0.7648
+  seed= 400  int=0.8425  ext=0.7644
+  seed= 500  int=0.8400  ext=0.7625
+  seed= 600  int=0.8423  ext=0.7652
+  seed= 700  int=0.8381  ext=0.7633
+  seed= 800  int=0.8430  ext=0.7643
+  seed= 900  int=0.8498  ext=0.7642
+
+  --- rdkit Results ---
+  Internal (10-seed mean):
+    roc_auc=0.8435  f1=0.9270  mcc=0.3839  acc=0.8695
+  External (soft voting):
+    roc_auc=0.7644  f1=0.8015  mcc=0.3964  acc=0.7335
+  Holdout (soft voting):
+    roc_auc=0.8013  f1=0.8352  mcc=0.4523  acc=0.7695
+
+============================================================
+  Feature config: maccs+rdkit  (maccs+rdkit)
+============================================================
+Loading internal dataset...
+  internal: 1677 samples, 383 features
+Loading external dataset...
+  external: 8109 samples
+Loading holdout dataset...
+  holdout:  1089 samples
+  seed=  42  int=0.8637  ext=0.7775
+  seed= 100  int=0.8564  ext=0.7777
+  seed= 200  int=0.8561  ext=0.7764
+  seed= 300  int=0.8534  ext=0.7776
+  seed= 400  int=0.8586  ext=0.7759
+  seed= 500  int=0.8542  ext=0.7765
+  seed= 600  int=0.8531  ext=0.7783
+  seed= 700  int=0.8723  ext=0.7736
+  seed= 800  int=0.8565  ext=0.7736
+  seed= 900  int=0.8602  ext=0.7794
+
+  --- maccs+rdkit Results ---
+  Internal (10-seed mean):
+    roc_auc=0.8585  f1=0.9258  mcc=0.3764  acc=0.8677
+  External (soft voting):
+    roc_auc=0.7774  f1=0.8023  mcc=0.4111  acc=0.7371
+  Holdout (soft voting):
+    roc_auc=0.8017  f1=0.8295  mcc=0.4366  acc=0.7622
+
+================================================================================
+  SUMMARY
+================================================================================
+Config           Int_AUC  Int_F1  Int_MCC  Int_ACC |  Ext_AUC  Ext_F1  Ext_MCC  Ext_ACC |  Hold_AUC  Hold_F1  Hold_MCC  Hold_ACC
+--------------------------------------------------------------------------------------------------------------------------------
+maccs             0.8471  0.9170   0.2754   0.8515 |   0.8001  0.8436   0.4930   0.7835 |    0.8206   0.8525    0.5035    0.7925
+rdkit             0.8435  0.9270   0.3839   0.8695 |   0.7644  0.8015   0.3964   0.7335 |    0.8013   0.8352    0.4523    0.7695
+maccs+rdkit       0.8585  0.9258   0.3764   0.8677 |   0.7774  0.8023   0.4111   0.7371 |    0.8017   0.8295    0.4366    0.7622
+
+Results saved to /home/minji/bbb-combo1/tabpfn_baseline_results.tsv
+[W428 19:56:24.571558255 AllocatorConfig.cpp:28] Warning: PYTORCH_CUDA_ALLOC_CONF is deprecated, use PYTORCH_ALLOC_CONF instead (function operator())

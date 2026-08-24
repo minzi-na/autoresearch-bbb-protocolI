@@ -1,0 +1,45 @@
+{
+  "fp_types": [
+    "maccs",
+    "avalon",
+    "rdkit",
+    "mole"
+  ],
+  "n_seeds": 10,
+  "internal": {
+    "roc_auc": 0.8404,
+    "mcc": 0.3577,
+    "f1": 0.9163,
+    "accuracy": 0.8539
+  },
+  "holdout": {
+    "roc_auc": 0.8924,
+    "mcc": 0.5851,
+    "f1": 0.8683,
+    "accuracy": 0.82
+  },
+  "seed_roc_s": [
+    0.8703,
+    0.8684,
+    0.8392,
+    0.8286,
+    0.792,
+    0.8362,
+    0.8215,
+    0.8528,
+    0.8392,
+    0.8558
+  ],
+  "hparams": {
+    "dropout": 0.046019393915327604,
+    "lr": 0.00011022334100107642,
+    "weight_decay": 3.88007962016146e-06,
+    "d_model": 512,
+    "d_ffn": 1048,
+    "depth": 4,
+    "stochastic_depth_rate": 0.05,
+    "batch_size": 128,
+    "num_epochs": 50,
+    "patience": 10
+  }
+}

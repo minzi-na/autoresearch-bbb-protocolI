@@ -1,0 +1,44 @@
+[
+  {
+    "trial_number": 0,
+    "objective_value": 0.8820799999999999,
+    "params": {
+      "dropout": 0.046019393915327604,
+      "lr": 0.00011022334100107642,
+      "weight_decay": 3.88007962016146e-06,
+      "warmup_epochs": 0
+    },
+    "roc_auc_scaffold": 0.87848,
+    "roc_auc_external": 0.7779,
+    "roc_auc_holdout": 0.817,
+    "n_seeds": 10
+  },
+  {
+    "trial_number": 15,
+    "objective_value": 0.8816200000000001,
+    "params": {
+      "dropout": 0.05801666741797869,
+      "lr": 0.00010959821836919182,
+      "weight_decay": 2.8158376276072375e-06,
+      "warmup_epochs": 0
+    },
+    "roc_auc_scaffold": 0.8784500000000002,
+    "roc_auc_external": 0.7789,
+    "roc_auc_holdout": 0.8173,
+    "n_seeds": 10
+  },
+  {
+    "trial_number": 42,
+    "objective_value": 0.87828,
+    "params": {
+      "dropout": 0.05967153670393932,
+      "lr": 0.00010019954567872499,
+      "weight_decay": 2.1079257320409785e-06,
+      "warmup_epochs": 0
+    },
+    "roc_auc_scaffold": 0.87693,
+    "roc_auc_external": 0.7786,
+    "roc_auc_holdout": 0.8174,
+    "n_seeds": 10
+  }
+]

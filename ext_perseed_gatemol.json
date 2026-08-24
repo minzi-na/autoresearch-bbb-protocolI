@@ -1,0 +1,10 @@
+{
+  "phase2_best_pw008": {
+    "ext_perseed_mean": 0.7688,
+    "ext_perseed_std": 0.003
+  },
+  "phase2_best_auto": {
+    "ext_perseed_mean": 0.7697,
+    "ext_perseed_std": 0.0058
+  }
+}

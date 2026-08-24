@@ -1,0 +1,29 @@
+Loading internal dataset...
+  [cache] Loading internal from /home/minji/bbb-combo1/dataset_cache/internal.pt
+Internal : 1677 samples
+Loading external dataset...
+  [cache] Loading external from /home/minji/bbb-combo1/dataset_cache/external.pt
+External : 8109 samples
+Loading holdout dataset...
+  [cache] Loading holdout from /home/minji/bbb-combo1/dataset_cache/holdout.pt
+Holdout  : 1089 samples
+
+Retraining iter90 + P2_BEST + pos_weight=AUTO -> /home/minji/bbb-combo1/bbb_artifacts/phase2_best_auto
+  seed=  42  int=0.8648  ext=0.7688  holdout=0.8053  pw=0.3235
+  seed= 100  int=0.8411  ext=0.7701  holdout=0.8096  pw=0.3235
+  seed= 200  int=0.8463  ext=0.7771  holdout=0.8117  pw=0.3235
+  seed= 300  int=0.8782  ext=0.7697  holdout=0.8109  pw=0.3235
+  seed= 400  int=0.8335  ext=0.7763  holdout=0.8233  pw=0.3235
+  seed= 500  int=0.8681  ext=0.7748  holdout=0.8115  pw=0.3235
+  seed= 600  int=0.8408  ext=0.7659  holdout=0.8032  pw=0.3235
+  seed= 700  int=0.8744  ext=0.7616  holdout=0.7956  pw=0.3235
+  seed= 800  int=0.8880  ext=0.7737  holdout=0.8124  pw=0.3235
+  seed= 900  int=0.8872  ext=0.7588  holdout=0.7865  pw=0.3235
+
+  [ensemble] ext=0.7788  holdout=0.8155
+  [mean internal] roc_s=0.86224
+
+  Expected: roc_s=0.8611  roc_ext=0.7788  roc_holdout=0.8163
+  Got:      roc_s=0.8622  roc_ext=0.7788  roc_holdout=0.8155
+
+Models saved to: /home/minji/bbb-combo1/bbb_artifacts/phase2_best_auto

@@ -1,0 +1,4 @@
+config	split	accuracy	precision	recall	f1	roc_auc	mcc	sensitivity	specificity
+maccs+avalon+rdkit+mole	int	0.8641	0.8751	0.9787	0.924	0.8499	0.3492	0.9787	0.2423
+maccs+avalon+rdkit+mole	ext	0.7296	0.8157	0.7773	0.796	0.7683	0.3966	0.7773	0.6286
+maccs+avalon+rdkit+mole	holdout	0.7622	0.8379	0.8146	0.8261	0.8055	0.4508	0.8146	0.6437

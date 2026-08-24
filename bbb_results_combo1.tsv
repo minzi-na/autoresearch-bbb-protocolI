@@ -1,0 +1,107 @@
+commit	roc_s	roc_ext	roc_holdout	status	description
+a489d67	0.845660	0.763670	0.798460	keep	baseline (maccs+avalon+rdkit+mole, original gMLP)
+25aac7d	0.833220	0.760750	0.793620	discard	early stopping on val_roc_auc + label smoothing (smooth=0.1)
+157e6d3	0.839330	0.764680	0.798900	discard	warmup (5 epochs) + cosine annealing LR scheduler
+cc1985e	0.835180	0.766850	0.800990	discard	AdamW optimizer + gradient clipping (max_norm=1.0)
+4940e0a	0.837840	0.762850	0.798650	discard	per-modality LayerNorm after projection
+557c453	0.839440	0.764790	0.803240	discard	modality dropout (p=0.15) for regularization
+ec6dde0	0.838850	0.767800	0.803030	discard	cross-modal FiLM (category-based) fp↔embed conditioning before backbone
+4f74048	0.840080	0.767880	0.805680	discard	attention pooling — input-aware query replaces static gated pool
+7cc0efb	0.845630	0.763660	0.798450	discard	learnable residual scaling in SGU (gate_scale=0 init)
+675b34c	0.834770	0.769650	0.805950	discard	2-layer per-modality projection (Linear-GELU-Linear)
+8c66bf0	0.827290	0.764740	0.799420	discard	multi-head SGU (n_heads=2) ensemble mixing
+0a2b5d4	0.848100	0.761740	0.799850	keep	pos_weight from train label ratio (BBB+/BBB- ~3:1 rebalance); roc_ext slightly down
+8cf9b99	0.845190	0.763370	0.803050	discard	modality dropout (p=0.15) on top of pos_weight
+f7976a2	0.847030	0.763000	0.799700	discard	stochastic depth (drop_path=0.1 linear) on top of pos_weight
+b27da43	0.847880	0.768370	0.804020	discard	pos_weight=0.5 fixed (softer than auto ~0.32)
+d93a328	0.838360	0.761530	0.797530	discard	cross-modal AdaLN conditioning before backbone (on top of pos_weight)
+fef0894	0.845750	0.761180	0.797290	discard	per-modality LayerNorm after projection (on top of pos_weight)
+0979c76	0.812640	0.769090	0.801690	discard	label smoothing eps=0.05 on top of pos_weight
+bc8d6a9	0.839240	0.770740	0.811330	discard	GeGLU activation in gMLPBlock (d_ffn*4 proj) on top of pos_weight
+a2140b1	0.847070	0.764550	0.804660	discard	attention pooling on top of pos_weight (Conv1d SGU)
+928637d	0.851660	0.764610	0.802930	keep	attention-based SGU (self-attn replaces Conv1d) + pos_weight; all metrics up
+f9cee29	0.846600	0.766290	0.802260	discard	multi-head attention SGU (n_heads=4) — more heads hurt
+d020fac	0.850360	0.766200	0.803830	discard	attention pooling on top of attention-SGU + pos_weight (dual attention)
+95cda2e	0.841970	0.775330	0.810520	discard	attention SGU + residual out_proj (additive correction) — roc_s hurt
+eb963c9	0.832370	0.755450	0.790940	discard	CLS token pooling on attention-SGU + pos_weight (seq_len 4→5; CLS for classification)
+b9d5fb4	0.850750	0.767080	0.802910	discard	attention-SGU reduced QK d_head=64 (vs full d_ffn=524); roc_s below best 0.8517
+ddcbde8	0.850640	0.766300	0.802720	discard	2-head attention SGU (n_heads=2 d_head=262) + out_proj; single-head still wins
+e38c2fd	0.852980	0.765560	0.803830	keep	stochastic depth (max_rate=0.1 linear) on attention-SGU + pos_weight; new best
+955e253	0.855980	0.770730	0.810240	keep	pre-norm u+v in SGU + stoch_depth + pos_weight; all metrics up; new best
+acfdf46	0.856010	0.770730	0.810240	keep	learned temperature in attention SGU; marginal gain (+0.00003)
+ae66a27	0.856340	0.769440	0.808840	keep	stoch_depth rate 0.05 (milder); marginal gain; roc_ext/holdout slightly down
+25189a1	0.848930	0.769640	0.809330	discard	modality dropout p=0.1 on full stack; hurts roc_s with only 4 modalities
+ac534ec	0.858730	0.768710	0.808700	keep	attention dropout (p=0.1) in SGU; new best +0.0024; roc_ext/holdout marginal change
+c376b67	0.852990	0.768930	0.808330	discard	attn_drop=0.05 milder — p=0.1 was better
+3aa2b75	0.859610	0.767920	0.807400	keep	gradient clipping max_norm=1.0; new best; roc_ext/holdout slightly down (internal-gain note)
+4ab32a6	0.859580	0.767910	0.807380	discard	AdamW vs Adam: nearly identical, marginal miss (0.859580 < 0.859610)
+77f8c5b	0.848400	0.760910	0.802100	discard	warmup 3ep + cosine annealing — hurts significantly; constant lr better here
+6e063c4	0.858240	0.768360	0.807350	discard	stoch_depth 0.1 (stronger than 0.05) with attn_drop+grad_clip — 0.05 still better
+0d7b0f4	0.854780	0.767490	0.806710	discard	cross-attention SGU (Q from u, K/V from v) — self-attn still better
+6a6d47b	0.859610	0.767900	0.807390	discard	attention pooling (input-dependent) — tied with best 0.8596; not strictly better
+5ea9f34	0.851110	0.754400	0.797520	discard	val_roc_auc early stopping on full stack — hurts (0.8511 vs 0.8596)
+ed23148	0.855360	0.766390	0.805980	discard	pos_weight=0.6 (softer than auto ~0.32) — hurt roc_s from 0.8596 to 0.8554
+6e4e2ff	0.856880	0.767280	0.805560	discard	SiLU activation in channel_proj1 (replaces GELU) — 0.8569 vs best 0.8596; slight regression
+57c9a2f	0.852800	0.771600	0.810080	discard	GELU gate on v in SGU — roc_s 0.8528 (miss) but ext 0.7716/holdout 0.8101 both better than best; gen gain
+7da153c	0.852420	0.768160	0.809480	discard	spatial dropout p=0.05 on v_out in SGU — 0.8524 vs best 0.8596; hurts roc_s
+fdd1a3c	0.847000	0.767410	0.809180	discard	LayerNorm on v_out in SGU after attn — 0.8470 vs best 0.8596; hurts
+35ea341	0.853190	0.772260	0.809690	discard	out_proj after attn in SGU — 0.8532 roc_s miss; ext 0.7723/holdout 0.8097 better (generalization gain but not enough)
+917dff0	0.856090	0.768280	0.807260	discard	attn_drop=0.075 (between 0.05-discard and 0.1-best) — 0.8561 vs best 0.8596; 0.1 still better
+ee104c1	0.858990	0.768440	0.808540	discard	grad clip max_norm=2.0 — 0.8590 vs best 0.8596; nearly tied (0.0006 gap)
+8ad1460	0.854280	0.766280	0.802730	discard	per-modality LN after projection (input norm) — 0.8543 vs best 0.8596; hurts
+4ed48f9	0.854660	0.765570	0.803360	discard	2-layer MLP projection per modality (GELU+dropout) — 0.8547 vs best 0.8596; hurts
+c731013	0.858630	0.768050	0.808070	discard	stoch_depth rate=0.03 (less than 0.05-best) — 0.8586 vs best 0.8596; nearly tied (0.001 gap)
+57a8afd	0.838590	0.771260	0.810590	discard	SE recalibration after backbone — 0.8386 (big drop); ext/holdout better but roc_s worse
+66376e0	0.846500	0.768020	0.810420	discard	dual-head (backbone + skip path, learned gate) — 0.8465 vs best 0.8596; hurts roc_s
+c6e99b3	0.858200	0.768700	0.808710	discard	max_norm=2.0 + stoch_depth=0.03 combined — 0.8582 vs best 0.8596; close but not enough
+28a3d59	0.809370	0.750790	0.785170	discard	log_temp init=0.0 (temp=1.0 uniform start) — badly hurt 0.8094; -0.5*log(d_ffn) init better
+daea7a5	0.853330	0.766210	0.805250	discard	focal loss gamma=0.5 + pos_weight — 0.8533 vs best 0.8596; hurts
+43e7c62	0.862680	0.770980	0.808510	keep	diagonal mask in SGU attn (cross-modal only; no self-attn) — NEW BEST 0.8627 > 0.8596
+56c614c	0.861480	0.769850	0.808080	discard	attn_drop=0.15 on diagonal-masked SGU — 0.8615 vs best 0.8627; 0.1 still better
+3f8040f	0.862500	0.770840	0.808390	discard	stoch_depth=0.04 on diagonal-masked SGU — 0.8625 vs best 0.8627; nearly tied (0.0002 gap)
+320592c	0.862520	0.770960	0.808650	discard	max_norm=1.5 on diagonal-masked SGU — 0.8625 vs best 0.8627; nearly tied
+39426be	0.858330	0.771330	0.808890	discard	GELU gate on v in diagonal-masked SGU — 0.8583 vs best 0.8627; hurts
+0af0ecb	0.857750	0.770710	0.807470	discard	SiLU in channel_proj1 on diagonal-masked SGU — 0.8578 vs best 0.8627; hurts
+5a44b36	0.859460	0.770690	0.808000	discard	pos_weight=0.44 on diagonal-masked SGU — 0.8595 vs best 0.8627; hurts
+af493f9	0.861410	0.770930	0.808420	discard	pos_weight=0.35 on diagonal-masked SGU — 0.8614 vs best 0.8627; hurts
+06f6fbf	0.864170	0.770940	0.808580	keep	pos_weight=0.28 on diagonal-masked SGU — NEW BEST 0.8642 > 0.8627
+badbbd2	0.861790	0.771670	0.806630	discard	per-modality LayerNorm after projection on diagonal-masked SGU + pw=0.28 — 0.8618 vs best 0.8642; hurts
+58c1e81	0.865440	0.770860	0.808660	keep	pos_weight=0.24 on diagonal-masked SGU — NEW BEST 0.8654 > 0.8642
+2fe61a5	0.866030	0.770760	0.808780	keep	pos_weight=0.20 on diagonal-masked SGU — NEW BEST 0.8660 > 0.8654
+712a11e	0.866630	0.770670	0.808970	keep	pos_weight=0.16 on diagonal-masked SGU — NEW BEST 0.8666 > 0.8660
+75155b5	0.868920	0.770490	0.809310	keep	pos_weight=0.12 on diagonal-masked SGU — NEW BEST 0.8689 > 0.8666
+a810bd1	0.869830	0.769900	0.809540	keep	pos_weight=0.08 on diagonal-masked SGU — NEW BEST 0.8698 > 0.8689
+c8a1334	0.869460	0.779213	0.818622	discard	pos_weight=0.05 on diagonal-masked SGU — 0.8695 vs best 0.8698; diminishing returns; roc_ext/holdout improved but roc_s slightly down
+ceebe37	0.855480	0.763200	0.806080	discard	multi-head attention pooling (n_heads=2) replaces static gated pool — 0.8555 vs best 0.8698; hurts significantly
+183a36c	0.869120	0.770180	0.808470	discard	post-backbone sequence LayerNorm before pooling — 0.8691 vs best 0.8698; nearly tied but not better
+f128b16	0.872970	0.769040	0.809370	keep	learnable skip connection pre→post backbone (gate_init=0); NEW BEST 0.8730 > 0.8698; roc_ext/holdout marginal change
+72e2fb4	0.872910	0.769030	0.809370	discard	additive global skip X=backbone(X0)+X0 — 0.8729 vs best 0.8730; nearly tied; learned gate marginally better
+a2f411e	0.872940	0.769030	0.809370	discard	per-modality skip gates (4 gates vs 1 global) — 0.8729 vs best 0.8730; nearly tied; global gate simpler
+f984bea	0.866850	0.765650	0.806750	discard	modality dropout p=0.1 before backbone (skip provides fallback) — 0.8669 vs best 0.8730; hurts even with skip
+a7bbb7b	0.865500	0.765040	0.808180	discard	cross-modal FiLM (zero-init) before backbone + skip — 0.8655 vs best 0.8730; hurts
+e3081fd	0.864220	0.769600	0.807700	discard	iter76: val_roc_auc early stopping — regression 0.8642 < best 0.8730 (checkpoint selection degraded with attention-SGU+skip+aux architecture)
+5b26cc0	0.835150	0.767050	0.806910	discard	2-layer per-modality projection (Linear→LN→GELU→Linear) — 0.8352 vs best 0.8730; overfits badly
+018828d	0.863200	0.762710	0.804850	discard	low-rank Q,K projections in SGU (d_k=64) — 0.8632 vs best 0.8730; hurts; full Q,K needed
+8505840	0.872650	0.768290	0.809070	discard	pos_weight=0.06 (re-sweep with skip arch) — 0.8727 vs best 0.8730; nearly tied; 0.08 still slightly better
+7fc5f96	0.856690	0.766120	0.808840	discard	depth=5 (one extra gMLPBlock) — 0.8567 vs best 0.8730; overfits; depth=4 optimal
+fad96e0	0.864650	0.766250	0.809810	discard	depth=3 (reduce from 4) — 0.8647 vs best 0.8730; too shallow; depth=4 optimal
+836eeda	0.875070	0.770020	0.810410	keep	iter82: reduce dropout 0.2→0.1 (less regularization; arch has skip+stoch_depth+attn_drop) — NEW BEST 0.8751 > 0.8730
+94b44d0	0.869990	0.769170	0.805980	discard	iter83: per-modality LayerNorm after projection — 0.8700 < best 0.8751; normalization after proj hurts
+87cc693	0.875110	0.778600	0.817500	keep	iter84: SiLU in gMLPBlock channel_proj — NEW BEST 0.87511>0.87507; ext+0.0086 holdout+0.0071 big generalization gain
+4650f19	0.875570	0.778600	0.817600	keep	iter85: RMSNorm in gMLPBlock norm — NEW BEST 0.87557>0.87511; ext/holdout maintained
+0273c5f	0.855470	0.774600	0.814000	discard	iter86: RMSNorm in SGU norm_v/norm_u — 0.8555 < best 0.8756; full RMSNorm in SGU hurts
+6e24d75	0.875550	0.778600	0.817600	discard	iter86: AdamW — 0.87555 < best 0.87557; essentially tied but Adam marginally better
+b4368c7	0.875570	0.778600	0.817600	discard	iter87: CosineAnnealingLR — 0.87557 == best; not strictly better; tied
+30af66a	0.875670	0.778600	0.817600	keep	iter88: weight_decay 1e-5→1e-4 — NEW BEST 0.87567 > 0.87557
+fca9c8c	0.872590	0.774400	0.813800	discard	iter89: SiLU in channel_proj2 as well as proj1 — 0.87259 < best 0.87567
+116735a	0.875730	0.778600	0.817600	keep	iter90: attention pooling (input-dependent query) — NEW BEST 0.87573 > 0.87567
+7a9e369	0.875730	0.778600	0.817600	discard	iter91: learnable SGU scale (tanh-bounded) — 0.87573 == best; not strictly better; tied
+5ae87cc	0.872990	0.777200	0.816600	discard	iter92: SiLU on SGU v_proj output — 0.87299 < best 0.87573
+bfb2d6c	0.872370	0.779100	0.815800	discard	iter93: post-backbone sequence RMSNorm before pooling — 0.87237 < best 0.87573; normalization before pooling hurts
+9d41b0e	0.875640	0.778600	0.817600	discard	iter94: learnable modality type embeddings (BERT-style) — 0.87564 < best 0.87573; nearly tied (-0.0001); no clear signal
+f6ebb98	0.851810	0.780200	0.818900	discard	iter95: 2-layer MLP head (d_model→128→SiLU→1) — 0.85181 << best 0.87573; head bottleneck overfits scaffold; roc_ext/holdout improved (generalization gain only)
+96920cf	0.871610	0.778000	0.817000	discard	iter96: cosine attention in SGU (remove log_temp; L2-normalize Q,K) — 0.87161 < best 0.87573; magnitude info lost hurts
+643eaae	0.824010	0.779400	0.818400	discard	iter97: Mixup augmentation (alpha=0.4) — 0.82401 << best 0.87573; scaffold hard-label eval conflicts with soft mixup targets; roc_ext/holdout improved (generalization only)
+9fe7108	0.875730	0.778600	0.817600	discard	iter98: learnable pooling temperature — 0.87573 == best; tied; temp converges to same 1/sqrt(d_model) init value; no gain
+73e6865	0.866950	0.783800	0.822000	discard	iter99: per-modality input LayerNorm before projection — 0.86695 < best 0.87573; roc_ext+0.005 roc_holdout+0.004 (generalization gain); scaffold hurt
+df94417	0.861890	0.776300	0.816200	discard	iter100: attention+max pool fusion (concat→Linear 2d→d) — 0.86189 < best 0.87573; max pool addition hurts; attention pool alone is better

@@ -1,0 +1,102 @@
+{
+  "exp1_phase2_best_auto": {
+    "internal_test": {
+      "n_seeds": 10,
+      "per_seed_mean": {
+        "accuracy": 0.87006,
+        "precision": 0.895926,
+        "recall": 0.957447,
+        "f1": 0.925572,
+        "roc_auc": 0.862248,
+        "mcc": 0.43392,
+        "auprc": 0.971399,
+        "specificity": 0.396154
+      },
+      "per_seed_std": {
+        "accuracy": 0.012575,
+        "precision": 0.008233,
+        "recall": 0.015211,
+        "f1": 0.007524,
+        "roc_auc": 0.019284,
+        "mcc": 0.056139,
+        "auprc": 0.005531,
+        "specificity": 0.057177
+      }
+    },
+    "external_8109": {
+      "n": 8109,
+      "pos": 5505,
+      "n_seeds": 10,
+      "per_seed_mean": {
+        "accuracy": 0.649044,
+        "precision": 0.842165,
+        "recall": 0.597075,
+        "f1": 0.694279,
+        "roc_auc": 0.769673,
+        "mcc": 0.336834,
+        "auprc": 0.849107,
+        "specificity": 0.758909
+      },
+      "per_seed_std": {
+        "accuracy": 0.038423,
+        "precision": 0.015688,
+        "recall": 0.086445,
+        "f1": 0.053196,
+        "roc_auc": 0.005825,
+        "mcc": 0.022044,
+        "auprc": 0.003038,
+        "specificity": 0.063751
+      }
+    }
+  },
+  "exp1_phase2_best_pw008": {
+    "internal_test": {
+      "n_seeds": 10,
+      "per_seed_mean": {
+        "accuracy": 0.843713,
+        "precision": 0.916415,
+        "recall": 0.897163,
+        "f1": 0.906194,
+        "roc_auc": 0.878478,
+        "mcc": 0.436933,
+        "auprc": 0.975763,
+        "specificity": 0.553846
+      },
+      "per_seed_std": {
+        "accuracy": 0.020473,
+        "precision": 0.011029,
+        "recall": 0.033753,
+        "f1": 0.014148,
+        "roc_auc": 0.016451,
+        "mcc": 0.038718,
+        "auprc": 0.004008,
+        "specificity": 0.075369
+      }
+    },
+    "external_8109": {
+      "n": 8109,
+      "pos": 5505,
+      "n_seeds": 10,
+      "per_seed_mean": {
+        "accuracy": 0.527883,
+        "precision": 0.873163,
+        "recall": 0.357984,
+        "f1": 0.500582,
+        "roc_auc": 0.768788,
+        "mcc": 0.256823,
+        "auprc": 0.849007,
+        "specificity": 0.887058
+      },
+      "per_seed_std": {
+        "accuracy": 0.048498,
+        "precision": 0.013254,
+        "recall": 0.090025,
+        "f1": 0.087017,
+        "roc_auc": 0.00303,
+        "mcc": 0.033372,
+        "auprc": 0.002035,
+        "specificity": 0.039761
+      }
+    }
+  }
+}

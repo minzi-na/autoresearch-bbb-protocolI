@@ -1,0 +1,145 @@
+{
+  "scaffold_overlap": {
+    "sets": {
+      "Internal_train": 629,
+      "External": 4139,
+      "Holdout": 768
+    },
+    "partition_counts": {
+      "unique_train": 431,
+      "unique_ext": 3725,
+      "unique_hold": 433,
+      "train_and_ext": 107,
+      "train_and_hold": 28,
+      "ext_and_hold": 244,
+      "all_three": 63
+    },
+    "coverage": {
+      "holdout in train": 0.1185,
+      "holdout in ext": 0.3997,
+      "holdout in train+ext": 0.4362,
+      "ext in train": 0.0411
+    }
+  },
+  "tanimoto_nn": {
+    "holdout_to_train": {
+      "median": 0.3333333432674408,
+      "mean": 0.3978114128112793,
+      "p25": 0.265625,
+      "p75": 0.4895833432674408
+    },
+    "holdout_to_ext": {
+      "median": 0.5961538553237915,
+      "mean": 0.6256226897239685
+    },
+    "holdout_to_train_ext": {
+      "median": 0.6315789222717285,
+      "mean": 0.647559642791748
+    },
+    "ext_to_train": {
+      "median": 0.31707316637039185,
+      "mean": 0.37239453196525574
+    },
+    "gain_from_aug": 0.2982455790042877
+  },
+  "label_agreement": {
+    "Holdout vs Internal train": {
+      "0.3": {
+        "matched_pairs": 669,
+        "agreement_rate": 0.7354260089686099
+      },
+      "0.5": {
+        "matched_pairs": 265,
+        "agreement_rate": 0.8113207547169812
+      },
+      "0.7": {
+        "matched_pairs": 112,
+        "agreement_rate": 0.8125
+      },
+      "0.9": {
+        "matched_pairs": 8,
+        "agreement_rate": 1.0
+      }
+    },
+    "Holdout vs External": {
+      "0.3": {
+        "matched_pairs": 1030,
+        "agreement_rate": 0.7883495145631068
+      },
+      "0.5": {
+        "matched_pairs": 722,
+        "agreement_rate": 0.796398891966759
+      },
+      "0.7": {
+        "matched_pairs": 397,
+        "agreement_rate": 0.8060453400503779
+      },
+      "0.9": {
+        "matched_pairs": 193,
+        "agreement_rate": 0.8082901554404145
+      }
+    },
+    "External vs Internal train": {
+      "0.3": {
+        "matched_pairs": 4655,
+        "agreement_rate": 0.7009667024704619
+      },
+      "0.5": {
+        "matched_pairs": 1560,
+        "agreement_rate": 0.7660256410256411
+      },
+      "0.7": {
+        "matched_pairs": 536,
+        "agreement_rate": 0.8563432835820896
+      },
+      "0.9": {
+        "matched_pairs": 2,
+        "agreement_rate": 1.0
+      }
+    }
+  },
+  "property_means": {
+    "MW": {
+      "mean_train": 348.59,
+      "mean_ext": 359.638,
+      "mean_hold": 364.727,
+      "mean_diff_ext_vs_train": 11.049,
+      "mean_diff_hold_vs_train": 16.138
+    },
+    "LogP": {
+      "mean_train": 2.355,
+      "mean_ext": 1.889,
+      "mean_hold": 2.06,
+      "mean_diff_ext_vs_train": -0.466,
+      "mean_diff_hold_vs_train": -0.294
+    },
+    "TPSA": {
+      "mean_train": 74.298,
+      "mean_ext": 99.888,
+      "mean_hold": 95.355,
+      "mean_diff_ext_vs_train": 25.59,
+      "mean_diff_hold_vs_train": 21.057
+    },
+    "NumHeavy": {
+      "mean_train": 24.306,
+      "mean_ext": 24.792,
+      "mean_hold": 25.207,
+      "mean_diff_ext_vs_train": 0.486,
+      "mean_diff_hold_vs_train": 0.9
+    },
+    "NumRot": {
+      "mean_train": 4.288,
+      "mean_ext": 5.359,
+      "mean_hold": 5.291,
+      "mean_diff_ext_vs_train": 1.07,
+      "mean_diff_hold_vs_train": 1.003
+    },
+    "FractionCSP3": {
+      "mean_train": 0.485,
+      "mean_ext": 0.437,
+      "mean_hold": 0.444,
+      "mean_diff_ext_vs_train": -0.048,
+      "mean_diff_hold_vs_train": -0.041
+    }
+  }
+}

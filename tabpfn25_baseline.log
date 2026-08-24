@@ -1,0 +1,30 @@
+
+======================================================================
+  TabPFN-2.5  Feature config: maccs+avalon+rdkit+mole
+======================================================================
+Loading internal dataset...
+  internal: 1677 samples, 1663 features (mole_dim=768)
+Loading external dataset...
+  external: 8109 samples
+Loading holdout dataset...
+  holdout:  1089 samples
+  seed=  42  int=0.8663  ext=0.7732  hold=0.8065
+  seed= 100  int=0.8069  ext=0.7596  hold=0.7966
+  seed= 200  int=0.8607  ext=0.7658  hold=0.8065
+  seed= 300  int=0.8421  ext=0.7600  hold=0.7989
+  seed= 400  int=0.8556  ext=0.7670  hold=0.8042
+  seed= 500  int=0.8494  ext=0.7661  hold=0.8052
+  seed= 600  int=0.8479  ext=0.7661  hold=0.8018
+  seed= 700  int=0.8493  ext=0.7695  hold=0.8012
+  seed= 800  int=0.8651  ext=0.7652  hold=0.8066
+  seed= 900  int=0.8561  ext=0.7626  hold=0.8025
+
+========================================================================================================================
+  SUMMARY  (TabPFN-2.5, combo1 features: maccs+avalon+rdkit+mole)
+========================================================================================================================
+Config                     Int_AUC   Int_F1  Int_MCC |  Ext_AUC   Ext_F1  Ext_MCC |  Hold_AUC   Hold_F1  Hold_MCC
+-----------------------------------------------------------------------------------------------------------------
+maccs+avalon+rdkit+mole     0.8499   0.9240   0.3492 |   0.7683   0.7960   0.3966 |    0.8055    0.8261    0.4508
+
+Results saved to /home/minji/bbb-combo1/tabpfn25_baseline_results.tsv
+[W428 23:31:56.650901255 AllocatorConfig.cpp:28] Warning: PYTORCH_CUDA_ALLOC_CONF is deprecated, use PYTORCH_ALLOC_CONF instead (function operator())
