@@ -1,0 +1,452 @@
+"""
+BBB gMLP model — architecture optimization.
+This is the file the autoresearch agent modifies.
+
+The agent may freely change:
+- Model architecture: SpatialGatingUnit, gMLPBlock, gMLP, MultiModalGMLPFromFlat
+- Training details inside train_model() (optimizer type, scheduler, etc.)
+
+The agent must NOT change:
+- bbb_prepare.py (data loading, splitting, evaluation)
+- Any hyperparameter value in BASE_CONFIG
+- The output format (the --- block at the end of __main__)
+
+Usage:
+    conda run -n rapids-25.02 python bbb_train.py > bbb_run_combo<N>.log 2>&1
+"""
+
+import os
+import sys
+import json
+import pickle
+import time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import torch.optim as optim
+from bbb_prepare import *  # fixed utilities, constants, device
+from copy import deepcopy
+
+# Artifact output directory (current run — agent copies to best/ on keep)
+ARTIFACT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bbb_artifacts', 'current')
+
+# Dataset cache directory — computed once, reloaded on every subsequent run
+CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dataset_cache')
+
+# Time budget per seed training loop (seconds).
+# Acts as a safeguard against architectures that are too heavy for this dataset.
+# Normal training completes in ~20-40s/seed; 300s allows ~10x headroom.
+TIME_BUDGET = 300
+
+# ---------------------------------------------------------------------------
+# Fixed hyperparameters — DO NOT MODIFY
+# ---------------------------------------------------------------------------
+
+BASE_CONFIG = {
+    'd_model':      512,
+    'd_ffn':        1048,
+    'depth':        4,
+    'dropout':      0.2,
+    'lr':           1e-4,
+    'weight_decay': 1e-5,
+    'num_epochs':   NUM_EPOCHS,   # 50, from bbb_prepare
+    'patience':     PATIENCE,     # 10, from bbb_prepare
+    'batch_size':   BATCH_SIZE,   # 128, from bbb_prepare
+}
+
+SEEDS       = [42, 100, 200, 300, 400, 500, 600, 700, 800, 900]
+SPLIT_MODE  = 'scaffold'   # fixed — random_scaffold not used for architecture search
+
+# External remaining dataset paths (fixed — do not modify)
+_EXT_DIR = '/home/minji/BBB/holdout_splits/external_cls_only_holdout_10pct_seed42'
+EXT_LABEL_PATH  = f'{_EXT_DIR}/external_cls_only_label_remaining.csv'
+EXT_EMBED_PATHS = {
+    'scage1': f'{_EXT_DIR}/external_cls_only_scage1_remaining.csv',
+    'scage2': f'{_EXT_DIR}/external_cls_only_scage2_remaining.csv',
+    'mole':   f'{_EXT_DIR}/external_cls_only_mole_remaining.csv',
+}
+
+# Merged holdout dataset paths (fixed — do not modify)
+_HOLDOUT_DIR        = '/home/minji/BBB/holdout_splits/merged_holdout_10pct_seed42'
+HOLDOUT_LABEL_PATH  = f'{_HOLDOUT_DIR}/label_holdout.csv'
+HOLDOUT_EMBED_PATHS = {
+    'scage1': f'{_HOLDOUT_DIR}/scage1_holdout.csv',
+    'scage2': f'{_HOLDOUT_DIR}/scage2_holdout.csv',
+    'mole':   f'{_HOLDOUT_DIR}/mole_holdout.csv',
+}
+
+# ---------------------------------------------------------------------------
+# Model Architecture  (agent modifies this section)
+# ---------------------------------------------------------------------------
+
+class RMSNorm(nn.Module):
+    """Root Mean Square Layer Normalization (no mean centering)."""
+    def __init__(self, d, eps=1e-8):
+        super().__init__()
+        self.scale = nn.Parameter(torch.ones(d))
+        self.eps   = eps
+
+    def forward(self, x):
+        rms = x.pow(2).mean(dim=-1, keepdim=True).add(self.eps).sqrt()
+        return (x / rms) * self.scale
+
+
+class SpatialGatingUnit(nn.Module):
+    """SGU with SiLU on both u and v: nonlinear gate on both paths."""
+    def __init__(self, d_ffn, seq_len):
+        super().__init__()
+        self.norm         = RMSNorm(d_ffn)
+        self.spatial_proj = nn.Conv1d(seq_len, seq_len, kernel_size=1)
+        nn.init.constant_(self.spatial_proj.bias, 1.0)
+
+    def forward(self, x):
+        u, v = x.chunk(2, dim=-1)
+        v = self.norm(v)
+        v = self.spatial_proj(v)
+        v = F.silu(v)    # SiLU gate activation on v
+        u = F.silu(u)    # SiLU on u path too
+        return u * v
+
+
+class gMLPBlock(nn.Module):
+    def __init__(self, d_model, d_ffn, seq_len, drop_path_prob=0.0):
+        super().__init__()
+        self.norm          = RMSNorm(d_model)
+        self.channel_proj1 = nn.Linear(d_model, d_ffn * 2)
+        self.channel_proj2 = nn.Linear(d_ffn, d_model)
+        self.sgu           = SpatialGatingUnit(d_ffn, seq_len)
+        self.drop_path_prob = drop_path_prob
+
+    def forward(self, x):
+        residual = x
+        out = self.norm(x)
+        out = F.silu(self.channel_proj1(out))  # SiLU in channel proj (consistent with SGU)
+        out = self.sgu(out)
+        out = self.channel_proj2(out)
+        # Stochastic depth: skip entire block with probability during training
+        if self.training and self.drop_path_prob > 0:
+            keep_prob = 1.0 - self.drop_path_prob
+            shape = (x.shape[0],) + (1,) * (x.ndim - 1)
+            mask = torch.bernoulli(torch.full(shape, keep_prob, device=x.device)) / keep_prob
+            out = out * mask
+        return out + residual
+
+
+class gMLP(nn.Module):
+    def __init__(self, d_model=512, d_ffn=1048, seq_len=4, num_layers=4, drop_path_rate=0.15):
+        super().__init__()
+        # Linearly increasing drop path: 0 → drop_path_rate across layers
+        dpr = [drop_path_rate * i / max(1, num_layers - 1) for i in range(num_layers)]
+        self.model = nn.Sequential(
+            *[gMLPBlock(d_model, d_ffn, seq_len, drop_path_prob=dpr[i])
+              for i in range(num_layers)]
+        )
+
+    def forward(self, x):
+        return self.model(x)
+
+
+class MultiModalGMLPFromFlat(nn.Module):
+    def __init__(self, mod_dims: OrderedDict,
+                 d_model=512, d_ffn=1048, depth=4,
+                 dropout=0.2, use_gated_pool=True):
+        super().__init__()
+        self.mod_names      = list(mod_dims.keys())
+        self.mod_dims       = [mod_dims[n] for n in self.mod_names]
+        self.seq_len        = len(self.mod_names)
+        self.use_gated_pool = use_gated_pool
+
+        self.proj = nn.ModuleDict({
+            name: nn.Linear(in_dim, d_model)
+            for name, in_dim in zip(self.mod_names, self.mod_dims)
+        })
+        self.backbone = gMLP(
+            d_model=d_model, d_ffn=d_ffn,
+            seq_len=self.seq_len, num_layers=depth,
+        )
+        self.norm = RMSNorm(d_model)
+        if use_gated_pool:
+            self.pool_query = nn.Parameter(torch.zeros(d_model))
+        self.head = nn.Linear(d_model, 1)
+        self.drop = nn.Dropout(dropout)
+
+    def forward(self, x):
+        chunks = torch.split(x, self.mod_dims, dim=1)
+        tokens = [self.proj[name](chunk)
+                  for name, chunk in zip(self.mod_names, chunks)]
+        X = torch.stack(tokens, dim=1)          # (B, seq_len, d_model)
+        X = self.backbone(X)
+        if self.use_gated_pool:
+            d_model = X.shape[-1]
+            scores = (X @ self.pool_query) / (d_model ** 0.5)  # (B, seq_len)
+            w = torch.softmax(scores, dim=-1)                   # (B, seq_len)
+            Xp = (X * w.unsqueeze(-1)).sum(dim=1)               # (B, d_model)
+        else:
+            Xp = X.mean(dim=1)
+        Xp = self.drop(self.norm(Xp))
+        return self.head(Xp).squeeze(-1)
+
+
+# ---------------------------------------------------------------------------
+# Training loop  (agent may modify optimizer, scheduler, etc.)
+# ---------------------------------------------------------------------------
+
+def train_model(model, optimizer, train_loader, val_loader, loss_fn,
+                num_epochs=BASE_CONFIG['num_epochs'],
+                patience=BASE_CONFIG['patience']):
+    best_val   = float('inf')
+    best_state = None
+    bad        = 0
+    t_start    = time.time()
+    # Cosine annealing LR scheduler: decays lr from 1e-4 → ~0 over num_epochs
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=1e-6)
+
+    for epoch in range(num_epochs):
+        elapsed = time.time() - t_start
+        if elapsed > TIME_BUDGET:
+            print(f'    [timeout] TIME_BUDGET={TIME_BUDGET}s exceeded at epoch {epoch} ({elapsed:.1f}s elapsed)')
+            break
+
+        model.train()
+        for x, y in train_loader:
+            x, y = x.to(device), y.to(device)
+            optimizer.zero_grad()
+            loss_fn(model(x), y).backward()
+            optimizer.step()
+        scheduler.step()
+
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for x, y in val_loader:
+                x, y = x.to(device), y.to(device)
+                val_loss += loss_fn(model(x), y).item()
+        val_loss /= max(len(val_loader), 1)
+
+        if val_loss < best_val:
+            best_val   = val_loss
+            best_state = deepcopy(model.state_dict())
+            bad        = 0
+        else:
+            bad += 1
+            if bad >= patience:
+                break
+
+    if best_state:
+        model.load_state_dict(best_state)
+    return model
+
+
+# ---------------------------------------------------------------------------
+# Dataset caching — computed once per worktree, reloaded on every run
+# ---------------------------------------------------------------------------
+
+def load_cached_dataset(cache_name, smiles_path, embed_paths, fp_types, expected_dims=None):
+    """Load dataset from cache if available, otherwise compute and cache."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    cache_path = os.path.join(CACHE_DIR, f'{cache_name}.pt')
+    if os.path.exists(cache_path):
+        print(f'  [cache] Loading {cache_name} from {cache_path}')
+        return torch.load(cache_path, weights_only=False)
+    print(f'  [cache] Computing {cache_name} (will be cached for future runs)...')
+    dataset = ScageConcatDataset(smiles_path, embed_paths, fp_types, expected_dims)
+    torch.save(dataset, cache_path)
+    print(f'  [cache] Saved to {cache_path}')
+    return dataset
+
+
+# ---------------------------------------------------------------------------
+# Helper: apply scaler to rdkit slice of a raw feature tensor
+# ---------------------------------------------------------------------------
+
+def apply_scaler(X: torch.Tensor, scaler, rd_start, rd_end) -> torch.Tensor:
+    """Return a scaled copy of X. Safe to call with scaler=None."""
+    if scaler is None or rd_start is None:
+        return X
+    X = X.clone()
+    X[:, rd_start:rd_end] = torch.tensor(
+        scaler.transform(X[:, rd_start:rd_end].numpy()),
+        dtype=torch.float32,
+    )
+    return X
+
+
+# ---------------------------------------------------------------------------
+# Evaluation: scaffold split, 10 seeds
+# ---------------------------------------------------------------------------
+
+def predict_probs(model, loader) -> np.ndarray:
+    """Return sigmoid probabilities for the full loader in dataset order."""
+    model.eval()
+    probs = []
+    with torch.no_grad():
+        for x, *_ in loader:
+            probs.extend(torch.sigmoid(model(x.to(device))).cpu().numpy())
+    return np.asarray(probs, dtype=np.float32)
+
+
+def roc_auc_from_probs(y_true: torch.Tensor, probs: np.ndarray) -> float:
+    y_true_np = y_true.cpu().numpy().ravel()
+    return round(float(roc_auc_score(y_true_np, probs)), 4)
+
+
+def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
+    """
+    Train with scaffold split across all SEEDS.
+    Returns:
+        mean internal test ROC-AUC           (float)
+        soft-voting ensemble external ROC-AUC (float)
+        soft-voting ensemble holdout ROC-AUC  (float)
+    """
+    int_aucs = []
+    ext_seed_probs, holdout_seed_probs = [], []
+
+    for seed in SEEDS:
+        set_seed(seed)
+        train_ds, val_ds, test_ds, scaler, (rd_start, rd_end), _ = split_then_normalize(
+            dataset, split_mode=SPLIT_MODE,
+            train_ratio=0.8, val_ratio=0.1, seed=seed,
+        )
+
+        # Apply same scaler (fitted on this seed's train set) to external and holdout
+        ext_X     = apply_scaler(ext_dataset.features,     scaler, rd_start, rd_end)
+        holdout_X = apply_scaler(holdout_dataset.features, scaler, rd_start, rd_end)
+
+        bs = BASE_CONFIG['batch_size']
+        train_loader   = data.DataLoader(train_ds, batch_size=bs, shuffle=True,  num_workers=4)
+        val_loader     = data.DataLoader(val_ds,   batch_size=bs, shuffle=False, num_workers=4)
+        test_loader    = data.DataLoader(test_ds,  batch_size=bs, shuffle=False, num_workers=4)
+        ext_loader     = data.DataLoader(
+            data.TensorDataset(ext_X,     ext_dataset.labels),
+            batch_size=bs, shuffle=False, num_workers=4,
+        )
+        holdout_loader = data.DataLoader(
+            data.TensorDataset(holdout_X, holdout_dataset.labels),
+            batch_size=bs, shuffle=False, num_workers=4,
+        )
+
+        set_seed(seed)
+        model = MultiModalGMLPFromFlat(
+            mod_dims=mod_dims,
+            d_model=BASE_CONFIG['d_model'],
+            d_ffn=BASE_CONFIG['d_ffn'],
+            depth=BASE_CONFIG['depth'],
+            dropout=BASE_CONFIG['dropout'],
+            use_gated_pool=True,
+        ).to(device)
+
+        optimizer = optim.AdamW(
+            model.parameters(),
+            lr=BASE_CONFIG['lr'],
+            weight_decay=BASE_CONFIG['weight_decay'],
+        )
+        # pos_weight: auto-computed from training set to correct class imbalance (~2.26:1)
+        y_train_labels = torch.stack([train_ds[i][1] for i in range(len(train_ds))])
+        n_pos = y_train_labels.sum()
+        n_neg = len(y_train_labels) - n_pos
+        pw = (n_neg / n_pos).clamp(min=0.1, max=10.0)
+        loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw.to(device))
+
+        model = train_model(model, optimizer, train_loader, val_loader, loss_fn)
+
+        int_auc       = eval_model(model, test_loader)['roc_auc']
+        ext_probs     = predict_probs(model, ext_loader)
+        holdout_probs = predict_probs(model, holdout_loader)
+        ext_auc     = roc_auc_from_probs(ext_dataset.labels,     ext_probs)
+        holdout_auc = roc_auc_from_probs(holdout_dataset.labels, holdout_probs)
+
+        int_aucs.append(int_auc)
+        ext_seed_probs.append(ext_probs)
+        holdout_seed_probs.append(holdout_probs)
+        print(f"  seed={seed:>4d}  int={int_auc:.4f}  ext={ext_auc:.4f}  holdout={holdout_auc:.4f}")
+
+        # ── Save artifacts for this seed ──────────────────────────────────
+        seed_dir = os.path.join(ARTIFACT_DIR, f'seed_{seed}')
+        os.makedirs(seed_dir, exist_ok=True)
+
+        torch.save(model.state_dict(), os.path.join(seed_dir, 'model.pth'))
+
+        if scaler is not None:
+            with open(os.path.join(seed_dir, 'rdkit_scaler.pkl'), 'wb') as f:
+                pickle.dump(scaler, f)
+
+        config = {
+            'seed':        seed,
+            'split_mode':  SPLIT_MODE,
+            'fp_types':    FP_TYPES,
+            'mod_dims':    {k: int(v) for k, v in mod_dims.items()},
+            'base_config': {k: (v if not hasattr(v, '__name__') else str(v))
+                            for k, v in BASE_CONFIG.items()},
+            'metrics': {
+                'roc_auc_scaffold': int_auc,
+                'roc_auc_external': ext_auc,
+                'roc_auc_holdout':  holdout_auc,
+            },
+        }
+        with open(os.path.join(seed_dir, 'config.json'), 'w') as f:
+            json.dump(config, f, indent=2)
+        # ─────────────────────────────────────────────────────────────────
+
+        del model, optimizer
+        del train_loader, val_loader, test_loader, ext_loader, holdout_loader
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    mean = lambda lst: float(sum(lst) / len(lst))
+    ext_ensemble_probs     = np.mean(np.stack(ext_seed_probs,     axis=0), axis=0)
+    holdout_ensemble_probs = np.mean(np.stack(holdout_seed_probs, axis=0), axis=0)
+    ext_auc     = roc_auc_from_probs(ext_dataset.labels,     ext_ensemble_probs)
+    holdout_auc = roc_auc_from_probs(holdout_dataset.labels, holdout_ensemble_probs)
+    print(f"  [ensemble] ext={ext_auc:.4f}  holdout={holdout_auc:.4f}")
+    return mean(int_aucs), ext_auc, holdout_auc
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+if __name__ == '__main__':
+    t_start = time.time()
+
+    print('Loading internal dataset...')
+    dataset       = load_cached_dataset('internal', LABEL_PATH, EMBED_PATHS, fp_types=FP_TYPES)
+    expected_dims = dataset.expected_dims
+    mod_dims      = OrderedDict((t, expected_dims[t]) for t in FP_TYPES)
+    print(f'Internal : {len(dataset)} samples, feature_dim={dataset.features.shape[1]}')
+
+    print('Loading external dataset...')
+    ext_dataset = load_cached_dataset(
+        'external', EXT_LABEL_PATH, EXT_EMBED_PATHS,
+        fp_types=FP_TYPES, expected_dims=expected_dims,
+    )
+    print(f'External : {len(ext_dataset)} samples')
+
+    print('Loading holdout dataset...')
+    holdout_dataset = load_cached_dataset(
+        'holdout', HOLDOUT_LABEL_PATH, HOLDOUT_EMBED_PATHS,
+        fp_types=FP_TYPES, expected_dims=expected_dims,
+    )
+    print(f'Holdout  : {len(holdout_dataset)} samples')
+    print(f'Mod dims : {dict(mod_dims)}')
+    print(f'Split    : {SPLIT_MODE}, Seeds: {SEEDS}')
+    print(f'BASE_CONFIG: {BASE_CONFIG}')
+
+    print(f"\n{'='*60}")
+    print(f"Evaluating | split_mode={SPLIT_MODE} | n_seeds={len(SEEDS)}")
+    print('='*60)
+    int_auc, ext_auc, holdout_auc = run_evaluation(
+        dataset, ext_dataset, holdout_dataset, mod_dims,
+    )
+    print(f"\nMean  int={int_auc:.4f}  ext={ext_auc:.4f}  holdout={holdout_auc:.4f}")
+
+    # -----------------------------------------------------------------------
+    # Output block — DO NOT CHANGE FORMAT (parsed by autoresearch loop)
+    # -----------------------------------------------------------------------
+    peak_vram_mb = (torch.cuda.max_memory_allocated() / 1024 / 1024
+                    if torch.cuda.is_available() else 0.0)
+    print('\n---')
+    print(f'roc_auc_scaffold:    {int_auc:.6f}')
+    print(f'roc_auc_external:    {ext_auc:.6f}')
+    print(f'roc_auc_holdout:     {holdout_auc:.6f}')
+    print(f'total_seconds:       {time.time() - t_start:.1f}')
+    print(f'peak_vram_mb:        {peak_vram_mb:.1f}')
+    print(f'n_seeds:             {len(SEEDS)}')

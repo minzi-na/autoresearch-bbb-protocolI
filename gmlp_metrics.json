@@ -1,0 +1,82 @@
+{
+  "model_dir": "bbb_artifacts/best/current",
+  "fp_types": [
+    "ecfp",
+    "maccs",
+    "avalon",
+    "tt",
+    "rdkit",
+    "mole"
+  ],
+  "n_seeds": 10,
+  "internal": {
+    "roc_auc": 0.8555,
+    "mcc": 0.426,
+    "f1": 0.9246,
+    "accuracy": 0.8683
+  },
+  "roc_ext": 0.769,
+  "roc_holdout": 0.807,
+  "seed_metrics": [
+    {
+      "roc_auc": 0.876,
+      "mcc": 0.4186,
+      "f1": 0.9293,
+      "accuracy": 0.8743
+    },
+    {
+      "roc_auc": 0.8545,
+      "mcc": 0.385,
+      "f1": 0.9215,
+      "accuracy": 0.8623
+    },
+    {
+      "roc_auc": 0.8403,
+      "mcc": 0.3521,
+      "f1": 0.9226,
+      "accuracy": 0.8623
+    },
+    {
+      "roc_auc": 0.8646,
+      "mcc": 0.43,
+      "f1": 0.9288,
+      "accuracy": 0.8743
+    },
+    {
+      "roc_auc": 0.8618,
+      "mcc": 0.4012,
+      "f1": 0.9167,
+      "accuracy": 0.8563
+    },
+    {
+      "roc_auc": 0.8572,
+      "mcc": 0.4078,
+      "f1": 0.9078,
+      "accuracy": 0.8443
+    },
+    {
+      "roc_auc": 0.8523,
+      "mcc": 0.4485,
+      "f1": 0.9329,
+      "accuracy": 0.8802
+    },
+    {
+      "roc_auc": 0.8463,
+      "mcc": 0.4703,
+      "f1": 0.9273,
+      "accuracy": 0.8743
+    },
+    {
+      "roc_auc": 0.8547,
+      "mcc": 0.4563,
+      "f1": 0.9278,
+      "accuracy": 0.8743
+    },
+    {
+      "roc_auc": 0.8471,
+      "mcc": 0.4899,
+      "f1": 0.931,
+      "accuracy": 0.8802
+    }
+  ]
+}

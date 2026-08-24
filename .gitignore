@@ -22,3 +22,11 @@ dev/
 # Results file
 results.tsv
 bbb_results_combo3.tsv
+
+# Model weights and fitted scalers (archived to Zenodo, not in git)
+*.pth
+*.pt
+*.pkl
+*.npz
+dataset_cache/
+.codex
