@@ -1,0 +1,47 @@
+Loading internal dataset...
+  [cache] Loading internal from /home/minji/bbb-combo2/dataset_cache/internal.pt
+Internal : 1677 samples, feature_dim=4223
+Loading external dataset...
+  [cache] Loading external from /home/minji/bbb-combo2/dataset_cache/external.pt
+External : 8109 samples
+Loading holdout dataset...
+  [cache] Loading holdout from /home/minji/bbb-combo2/dataset_cache/holdout.pt
+Holdout  : 1089 samples
+Mod dims : {'ecfp': 1024, 'maccs': 166, 'avalon': 512, 'tt': 1024, 'rdkit': 217, 'scage1': 512, 'mole': 768}
+Split    : scaffold, Seeds: [42, 100, 200, 300, 400, 500, 600, 700, 800, 900]
+BASE_CONFIG: {'d_model': 512, 'd_ffn': 1048, 'depth': 4, 'dropout': 0.2, 'lr': 0.0001, 'weight_decay': 1e-05, 'num_epochs': 50, 'patience': 10, 'batch_size': 128}
+
+============================================================
+Evaluating | split_mode=scaffold | n_seeds=10
+============================================================
+  seed=  42  int=0.8680  ext=0.7523  holdout=0.7870
+  seed= 100  int=0.8661  ext=0.7579  holdout=0.7986
+  seed= 200  int=0.8369  ext=0.7592  holdout=0.7978
+  seed= 300  int=0.8666  ext=0.7613  holdout=0.7964
+  seed= 400  int=0.8573  ext=0.7550  holdout=0.7972
+  seed= 500  int=0.8767  ext=0.7695  holdout=0.8013
+  seed= 600  int=0.8781  ext=0.7648  holdout=0.7975
+  seed= 700  int=0.8478  ext=0.7565  holdout=0.7833
+  seed= 800  int=0.8928  ext=0.7674  holdout=0.8018
+  seed= 900  int=0.8920  ext=0.7629  holdout=0.7945
+  [ensemble] ext=0.7702  holdout=0.8050
+  [holdout]  mcc=0.4641  f1=0.8253  acc=0.7640
+
+Mean  int=0.8682  ext=0.7702  holdout=0.8050
+[internal] mcc=0.3841  f1=0.9241  acc=0.8659
+[holdout]  mcc=0.4641  f1=0.8253  acc=0.7640
+
+---
+roc_auc_scaffold:    0.868230
+roc_auc_external:    0.770200
+roc_auc_holdout:     0.805000
+mcc_scaffold:        0.384150
+f1_scaffold:         0.924140
+acc_scaffold:        0.865890
+mcc_holdout:         0.464113
+f1_holdout:          0.825289
+acc_holdout:         0.764004
+total_seconds:       109.1
+peak_vram_mb:        674.6
+n_seeds:             10
+

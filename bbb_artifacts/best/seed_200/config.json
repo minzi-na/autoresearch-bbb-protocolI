@@ -1,0 +1,38 @@
+{
+  "seed": 200,
+  "split_mode": "scaffold",
+  "fp_types": [
+    "ecfp",
+    "maccs",
+    "avalon",
+    "tt",
+    "rdkit",
+    "scage1",
+    "mole"
+  ],
+  "mod_dims": {
+    "ecfp": 1024,
+    "maccs": 166,
+    "avalon": 512,
+    "tt": 1024,
+    "rdkit": 217,
+    "scage1": 512,
+    "mole": 768
+  },
+  "base_config": {
+    "d_model": 512,
+    "d_ffn": 1048,
+    "depth": 4,
+    "dropout": 0.2,
+    "lr": 0.0001,
+    "weight_decay": 1e-05,
+    "num_epochs": 50,
+    "patience": 10,
+    "batch_size": 128
+  },
+  "metrics": {
+    "roc_auc_scaffold": 0.8472,
+    "roc_auc_external": 0.76,
+    "roc_auc_holdout": 0.8054
+  }
+}

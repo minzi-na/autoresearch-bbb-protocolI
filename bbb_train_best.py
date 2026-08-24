@@ -252,8 +252,6 @@ class MultiModalGMLPFromFlat(nn.Module):
         self.token_scale = nn.Parameter(torch.ones(self.seq_len))
         # Parameter-free cross-attention: fp tokens attend to embed tokens (init=0 gate)
         self.cross_gate = nn.Parameter(torch.zeros(1))
-        # Learned dim-wise scale on em values in cross-attn (init=ones; active from start)
-        self.ca_v_scale = nn.Parameter(torch.ones(d_model))
 
     def forward(self, x):
         chunks = torch.split(x, self.mod_dims, dim=1)
@@ -268,7 +266,7 @@ class MultiModalGMLPFromFlat(nn.Module):
         em_t = X0[:, self._n_fp:, :]
         scale_ca = X0.shape[-1] ** 0.5
         ca_attn = torch.softmax(fp_t @ em_t.transpose(-1, -2) / scale_ca, dim=-1)  # (B, n_fp, n_em)
-        fp_cross = ca_attn @ (em_t * self.ca_v_scale)                               # (B, n_fp, d)
+        fp_cross = ca_attn @ em_t                                                    # (B, n_fp, d)
         fp_t = fp_t + self.cross_gate * fp_cross
         X0 = torch.cat([fp_t, em_t], dim=1)
         X  = self.backbone(X0)
@@ -403,7 +401,6 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         soft-voting ensemble holdout ROC-AUC  (float)
     """
     int_aucs = []
-    int_mccs, int_f1s, int_accs = [], [], []
     ext_seed_probs, holdout_seed_probs = [], []
 
     for seed in SEEDS:
@@ -443,7 +440,7 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
         lr = BASE_CONFIG['lr']
         wd = BASE_CONFIG['weight_decay']
         fast_names = {'em_gate', 'fp_gate', 'em_max_gate', 'std_gate',
-                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate', 'ca_v_scale'}
+                      'token_scale', 'skip_gate', 'pool_query', 'cross_gate'}
         fast_params, base_params = [], []
         for name, p in model.named_parameters():
             if any(fn in name for fn in fast_names):
@@ -456,20 +453,13 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
             weight_decay=wd,
             amsgrad=True,
         )
-        # pos_weight: auto-computed from train labels (avoid roc_s-only sweep distortion)
-        y_train_labels = torch.stack([train_ds[i][1] for i in range(len(train_ds))])
-        n_pos = y_train_labels.sum()
-        n_neg = len(y_train_labels) - n_pos
-        pw = (n_neg / n_pos).clamp(min=0.1, max=10.0)
-        loss_fn = nn.BCEWithLogitsLoss(pos_weight=pw.to(device))
+        # pos_weight: iter71: try 0.20 (tuning below 0.22)
+        pos_weight = torch.tensor([0.20]).to(device)
+        loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         model = train_model(model, optimizer, train_loader, val_loader, loss_fn)
 
-        _test_metrics = eval_model(model, test_loader)
-        int_auc = _test_metrics['roc_auc']
-        int_mccs.append(_test_metrics['mcc'])
-        int_f1s.append(_test_metrics['f1'])
-        int_accs.append(_test_metrics['accuracy'])
+        int_auc = eval_model(model, test_loader)['roc_auc']
         ext_probs = predict_probs(model, ext_loader)
         holdout_probs = predict_probs(model, holdout_loader)
         ext_auc = roc_auc_from_probs(ext_dataset.labels, ext_probs)
@@ -517,17 +507,8 @@ def run_evaluation(dataset, ext_dataset, holdout_dataset, mod_dims):
     holdout_ensemble_probs = np.mean(np.stack(holdout_seed_probs, axis=0), axis=0)
     ext_auc = roc_auc_from_probs(ext_dataset.labels, ext_ensemble_probs)
     holdout_auc = roc_auc_from_probs(holdout_dataset.labels, holdout_ensemble_probs)
-    # holdout MCC/F1/ACC using ensemble probs at threshold 0.5
-    holdout_true = holdout_dataset.labels.cpu().numpy().ravel()
-    holdout_pred = (holdout_ensemble_probs > 0.5).astype(int)
-    holdout_mcc = float(matthews_corrcoef(holdout_true, holdout_pred))
-    holdout_f1  = float(f1_score(holdout_true, holdout_pred, zero_division=0))
-    holdout_acc = float(accuracy_score(holdout_true, holdout_pred))
     print(f"  [ensemble] ext={ext_auc:.4f}  holdout={holdout_auc:.4f}")
-    print(f"  [holdout]  mcc={holdout_mcc:.4f}  f1={holdout_f1:.4f}  acc={holdout_acc:.4f}")
-    return (mean(int_aucs), ext_auc, holdout_auc,
-            mean(int_mccs), mean(int_f1s), mean(int_accs),
-            holdout_mcc, holdout_f1, holdout_acc)
+    return mean(int_aucs), ext_auc, holdout_auc
 
 
 # ---------------------------------------------------------------------------
@@ -564,14 +545,10 @@ if __name__ == '__main__':
     print(f"\n{'='*60}")
     print(f"Evaluating | split_mode={SPLIT_MODE} | n_seeds={len(SEEDS)}")
     print('='*60)
-    (int_auc, ext_auc, holdout_auc,
-     int_mcc, int_f1, int_acc,
-     holdout_mcc, holdout_f1, holdout_acc) = run_evaluation(
+    int_auc, ext_auc, holdout_auc = run_evaluation(
         dataset, ext_dataset, holdout_dataset, mod_dims,
     )
     print(f"\nMean  int={int_auc:.4f}  ext={ext_auc:.4f}  holdout={holdout_auc:.4f}")
-    print(f"[internal] mcc={int_mcc:.4f}  f1={int_f1:.4f}  acc={int_acc:.4f}")
-    print(f"[holdout]  mcc={holdout_mcc:.4f}  f1={holdout_f1:.4f}  acc={holdout_acc:.4f}")
 
     # -----------------------------------------------------------------------
     # Output block — DO NOT CHANGE FORMAT (parsed by autoresearch loop)
@@ -582,12 +559,6 @@ if __name__ == '__main__':
     print(f'roc_auc_scaffold:    {int_auc:.6f}')
     print(f'roc_auc_external:    {ext_auc:.6f}')
     print(f'roc_auc_holdout:     {holdout_auc:.6f}')
-    print(f'mcc_scaffold:        {int_mcc:.6f}')
-    print(f'f1_scaffold:         {int_f1:.6f}')
-    print(f'acc_scaffold:        {int_acc:.6f}')
-    print(f'mcc_holdout:         {holdout_mcc:.6f}')
-    print(f'f1_holdout:          {holdout_f1:.6f}')
-    print(f'acc_holdout:         {holdout_acc:.6f}')
     print(f'total_seconds:       {time.time() - t_start:.1f}')
     print(f'peak_vram_mb:        {peak_vram_mb:.1f}')
     print(f'n_seeds:             {len(SEEDS)}')

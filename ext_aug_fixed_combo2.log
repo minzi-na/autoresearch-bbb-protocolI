@@ -1,0 +1,20 @@
+Loading datasets...
+  [cache] Loading internal from /home/minji/bbb-combo2/dataset_cache/internal.pt
+  [cache] Loading external from /home/minji/bbb-combo2/dataset_cache/external.pt
+  [cache] Loading holdout from /home/minji/bbb-combo2/dataset_cache/holdout.pt
+Internal: 1677  External: 8109  Holdout: 1089
+  seed=  42  roc_s=0.8320  mcc=0.3663  f1=0.9135  acc=0.8503  roc_holdout=0.8696  n_train=9451
+  seed= 100  roc_s=0.8115  mcc=0.4563  f1=0.9278  acc=0.8743  roc_holdout=0.8754  n_train=9451
+  seed= 200  roc_s=0.8538  mcc=0.3093  f1=0.9195  acc=0.8563  roc_holdout=0.8734  n_train=9451
+  seed= 300  roc_s=0.8759  mcc=0.3789  f1=0.9262  acc=0.8683  roc_holdout=0.8713  n_train=9451
+  seed= 400  roc_s=0.8055  mcc=0.4703  f1=0.9273  acc=0.8743  roc_holdout=0.8700  n_train=9451
+  seed= 500  roc_s=0.7859  mcc=0.2530  f1=0.9041  acc=0.8323  roc_holdout=0.8722  n_train=9451
+  seed= 600  roc_s=0.8254  mcc=0.3652  f1=0.9178  acc=0.8563  roc_holdout=0.8776  n_train=9451
+  seed= 700  roc_s=0.7911  mcc=0.2694  f1=0.9078  acc=0.8383  roc_holdout=0.8709  n_train=9451
+  seed= 800  roc_s=0.7891  mcc=0.3469  f1=0.9184  acc=0.8563  roc_holdout=0.8589  n_train=9451
+  seed= 900  roc_s=0.8014  mcc=0.3091  f1=0.9110  acc=0.8443  roc_holdout=0.8704  n_train=9451
+
+  [internal] roc_s=0.8172  mcc=0.3525  f1=0.9173  acc=0.8551
+  [holdout]  roc=0.8902   mcc=0.6469  f1=0.8936  acc=0.8512
+  Saved -> gmlp_ext_metrics_fixed.json
+
