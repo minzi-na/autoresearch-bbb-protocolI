@@ -1,0 +1,68 @@
+{
+  "combo": "combo2",
+  "combo_str": "ecfp+maccs+avalon+tt+rdkit+scage1+mole",
+  "best_subdir": "best",
+  "baseline": {
+    "roc_s": 0.8463,
+    "roc_ext": 0.7708,
+    "roc_holdout": 0.8082,
+    "internal_test": {
+      "roc_auc_mean": 0.8463,
+      "roc_auc_std": 0.0168
+    },
+    "external_ensemble": {
+      "accuracy": 0.6976,
+      "precision": 0.8238,
+      "recall": 0.7055,
+      "f1": 0.7601,
+      "roc_auc": 0.7708,
+      "mcc": 0.3657,
+      "sensitivity": 0.7055,
+      "specificity": 0.6809
+    },
+    "holdout_ensemble": {
+      "accuracy": 0.7447,
+      "precision": 0.8523,
+      "recall": 0.7642,
+      "f1": 0.8059,
+      "roc_auc": 0.8082,
+      "mcc": 0.442,
+      "sensitivity": 0.7642,
+      "specificity": 0.7006
+    }
+  },
+  "best": {
+    "roc_s": 0.8698,
+    "roc_ext": 0.7698,
+    "roc_holdout": 0.8054,
+    "internal_test": {
+      "roc_auc_mean": 0.8698,
+      "roc_auc_std": 0.0186
+    },
+    "external_ensemble": {
+      "accuracy": 0.7329,
+      "precision": 0.8178,
+      "recall": 0.7804,
+      "f1": 0.7987,
+      "roc_auc": 0.7698,
+      "mcc": 0.4036,
+      "sensitivity": 0.7804,
+      "specificity": 0.6325
+    },
+    "holdout_ensemble": {
+      "accuracy": 0.7704,
+      "precision": 0.838,
+      "recall": 0.8291,
+      "f1": 0.8336,
+      "roc_auc": 0.8054,
+      "mcc": 0.4638,
+      "sensitivity": 0.8291,
+      "specificity": 0.6377
+    }
+  },
+  "delta_best_minus_baseline": {
+    "roc_s": 0.0235,
+    "roc_ext": -0.001,
+    "roc_holdout": -0.0028
+  }
+}

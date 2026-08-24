@@ -61,10 +61,10 @@ EMBED_PATHS (콤보별로 필요한 것만 포함):
 | seeds | [42, 100, 200, 300, 400, 500, 600, 700, 800, 900] |
 | split_mode | scaffold |
 
-**평가 방식**: scaffold split 10 seeds 평균
-- `roc_auc_scaffold`: internal test ROC-AUC → keep/discard 기준
-- `roc_auc_external`: 동일 모델로 external remaining 전체 평가
-- `roc_auc_holdout`: 동일 모델로 merged holdout 전체 평가
+**평가 방식**
+- `roc_auc_scaffold`: scaffold split internal test ROC-AUC의 10 seeds 평균 → keep/discard 기준
+- `roc_auc_external`: 10개 seed 모델의 external remaining 예측확률을 평균한 soft voting ensemble ROC-AUC
+- `roc_auc_holdout`: 10개 seed 모델의 merged holdout 예측확률을 평균한 soft voting ensemble ROC-AUC
 
 ## Setup
 
@@ -123,8 +123,8 @@ n_seeds:             10
 ```
 
 - `roc_auc_scaffold`: internal test ROC-AUC (scaffold split, 10 seeds 평균) → **keep/discard 기준**
-- `roc_auc_external`: external remaining ROC-AUC (동일 10개 모델)
-- `roc_auc_holdout`: merged holdout ROC-AUC (동일 10개 모델)
+- `roc_auc_external`: external remaining ROC-AUC (10개 seed soft voting ensemble)
+- `roc_auc_holdout`: merged holdout ROC-AUC (10개 seed soft voting ensemble)
 
 Extract key metrics:
 ```bash
@@ -141,8 +141,8 @@ commit	roc_s	roc_ext	roc_holdout	status	description
 
 1. `commit`      — short git hash (7 chars)
 2. `roc_s`       — `roc_auc_scaffold` (10 seeds 평균), use 0.000000 for crashes
-3. `roc_ext`     — `roc_auc_external` (10 seeds 평균), use 0.000000 for crashes
-4. `roc_holdout` — `roc_auc_holdout` (10 seeds 평균), use 0.000000 for crashes
+3. `roc_ext`     — `roc_auc_external` (10개 seed soft voting ensemble), use 0.000000 for crashes
+4. `roc_holdout` — `roc_auc_holdout` (10개 seed soft voting ensemble), use 0.000000 for crashes
 5. `status`      — `keep`, `discard`, or `crash`
 6. `description` — short description of what was tried (no tabs)
 
@@ -182,6 +182,15 @@ git worktree add ../bbb-combo3 -b autoresearch/bbb-combo3-<date>
 
 **VRAM 주의**: 3개 프로세스가 동시에 GPU를 사용하므로, 전체 VRAM 여유를 모니터링한다. batch_size와 d_model은 고정 파라미터이므로 변경 불가.
 
+## Operational Protocol (effective from Apr 12 restart)
+
+아키텍처 방향은 결정됨. 지금은 **boilerplate implementation phase**.
+
+1. **Verbose thinking 비활성화**: 전략 테이블에 명시된 항목은 검토 없이 바로 구현. 깊은 reasoning은 결과 분석이나 테이블에 없는 novel idea에만.
+2. **Partial file edit only**: `bbb_train.py` 전체 재작성 금지. `Edit` 도구로 모델 정의 클래스 (`SpatialGatingUnit`, `gMLPBlock`, `gMLP`, `MultiModalGMLPFromFlat`, 약 82–160 line)와 `train_model()` 함수만 타겟 수정. 이 영역 밖 코드(BASE_CONFIG, output block, data loading) 절대 건드리지 않음.
+3. **Haiku 4.5 filter before Sonnet**: 전체 10-seed 평가(Sonnet) 전에 Haiku 4.5로 먼저 코드 diff를 검토. Haiku 확인 후 실행. 순서:
+   - `bbb_train.py` Edit → Haiku agent로 diff 검토 (syntax/logic sanity check) → 문제 없으면 commit → 전체 실행
+
 ## The experiment loop (per combo)
 
 각 콤보에 대해 아래 루프를 독립적으로, 동시에 실행한다.
@@ -210,7 +219,7 @@ git worktree add ../bbb-combo3 -b autoresearch/bbb-combo3-<date>
    ```
    (`bbb_artifacts/current/`는 다음 실험에서 자동으로 덮어씌워짐)
 
-**Timeout**: 실행 1회 최대 90분 (10 seeds × ~9분/run: scaffold split + external + holdout 평가 포함). 초과 시 kill 후 crash 처리.
+**Timeout**: 실행 1회 최대 60분 (10 seeds × ~6분/run: scaffold split + external + holdout 평가 포함). 초과 시 kill 후 crash 처리.
 
 **방향 전환 규칙**: 같은 컴포넌트 방향에서 3번 연속 discard면 해당 방향을 포기하고 우선순위 테이블의 다음 항목으로 이동한다.
 - 예: attention pooling 시도 → discard → multi-head pooling 변형 → discard → pooling 관련 미세조정 → discard → 다음 항목(Residual scaling)으로 이동

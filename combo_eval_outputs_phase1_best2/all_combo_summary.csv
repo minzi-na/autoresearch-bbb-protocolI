@@ -1,0 +1,4 @@
+combo,best_subdir,roc_s,roc_ext,roc_holdout
+combo1,best,0.8756,0.7786,0.8176
+combo2,best,0.8736,0.7703,0.8052
+combo3,best,0.8555,0.769,0.807

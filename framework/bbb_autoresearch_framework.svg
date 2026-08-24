@@ -1,0 +1,161 @@
+<svg width="1600" height="1180" viewBox="0 0 1600 1180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="1180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F1E8"/>
+      <stop offset="1" stop-color="#E6F0EE"/>
+    </linearGradient>
+    <linearGradient id="titleBar" x1="80" y1="40" x2="1520" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17324D"/>
+      <stop offset="1" stop-color="#2E6D67"/>
+    </linearGradient>
+    <linearGradient id="panelA" x1="80" y1="140" x2="760" y2="140" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7E8"/>
+      <stop offset="1" stop-color="#FCE9D5"/>
+    </linearGradient>
+    <linearGradient id="panelB" x1="840" y1="140" x2="1520" y2="140" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF7F5"/>
+      <stop offset="1" stop-color="#DFF0EB"/>
+    </linearGradient>
+    <linearGradient id="panelC" x1="80" y1="700" x2="1520" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FBFF"/>
+      <stop offset="1" stop-color="#EDF7F2"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1D2C3A" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1 1L10 6L1 11" stroke="#315A73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowSoft" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1 1L10 6L1 11" stroke="#507C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="1180" fill="url(#bg)"/>
+
+  <rect x="80" y="40" width="1440" height="68" rx="24" fill="url(#titleBar)" filter="url(#shadow)"/>
+  <text x="120" y="83" fill="#F8F4EC" font-size="34" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">BBB AutoResearch Framework</text>
+  <text x="1010" y="83" fill="#D9ECE8" font-size="18" font-weight="500" font-family="Pretendard, Noto Sans KR, sans-serif">Outer loop: architecture search  |  Inner loop: model weight training</text>
+
+  <rect x="80" y="140" width="680" height="500" rx="28" fill="url(#panelA)" stroke="#D2B48C" stroke-width="2" filter="url(#shadow)"/>
+  <text x="116" y="184" fill="#6B4C2B" font-size="28" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">1. AutoResearch 외부 루프</text>
+  <text x="116" y="214" fill="#856448" font-size="16" font-weight="500" font-family="Pretendard, Noto Sans KR, sans-serif">코드 자체를 실험 단위로 바꾸고, 결과가 좋으면 keep, 아니면 discard</text>
+
+  <rect x="116" y="244" width="608" height="62" rx="18" fill="#FFFDF8" stroke="#D6C2A5" stroke-width="2"/>
+  <text x="146" y="269" fill="#284154" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Step 1. Baseline 고정</text>
+  <text x="146" y="292" fill="#4D6270" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">d_model, d_ffn, depth, dropout, lr, batch_size, seeds는 유지</text>
+
+  <rect x="116" y="330" width="608" height="62" rx="18" fill="#FFFDF8" stroke="#D6C2A5" stroke-width="2"/>
+  <text x="146" y="355" fill="#284154" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Step 2. Agent가 아키텍처 변경안 제안</text>
+  <text x="146" y="378" fill="#4D6270" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">예: projection norm, SGU 구조, residual scaling, pooling 방식</text>
+
+  <rect x="116" y="416" width="608" height="62" rx="18" fill="#FFFDF8" stroke="#D6C2A5" stroke-width="2"/>
+  <text x="146" y="441" fill="#284154" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Step 3. `bbb_train.py` 수정 후 실행</text>
+  <text x="146" y="464" fill="#4D6270" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">10개 seed scaffold 학습 + external/holdout 평가</text>
+
+  <rect x="116" y="502" width="608" height="62" rx="18" fill="#FFFDF8" stroke="#D6C2A5" stroke-width="2"/>
+  <text x="146" y="527" fill="#284154" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Step 4. 결과 파싱</text>
+  <text x="146" y="550" fill="#4D6270" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">주 판단지표: `roc_auc_scaffold`  |  보조지표: external, holdout</text>
+
+  <path d="M420 307V330" stroke="#9E7A54" stroke-width="3" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M420 393V416" stroke="#9E7A54" stroke-width="3" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M420 479V502" stroke="#9E7A54" stroke-width="3" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <rect x="134" y="584" width="250" height="38" rx="14" fill="#DFF2E4" stroke="#7CAB85" stroke-width="2"/>
+  <text x="190" y="608" fill="#23513E" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">KEEP</text>
+  <text x="257" y="608" fill="#23513E" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">roc_auc_scaffold 개선</text>
+
+  <rect x="458" y="584" width="248" height="38" rx="14" fill="#F6DDD6" stroke="#C57461" stroke-width="2"/>
+  <text x="515" y="608" fill="#7C2F24" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">DISCARD</text>
+  <text x="605" y="608" fill="#7C2F24" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">개선 없음 또는 하락</text>
+
+  <path d="M420 565C420 581 352 581 259 581" stroke="#5B8F71" stroke-width="3" fill="none" marker-end="url(#arrowSoft)"/>
+  <path d="M420 565C420 581 532 581 582 581" stroke="#AF5A45" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="98" y="634" width="298" height="84" rx="20" fill="#F7FFFA" stroke="#7CAB85" stroke-width="2"/>
+  <text x="124" y="662" fill="#23513E" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Keep 이후</text>
+  <text x="124" y="688" fill="#3B5C4E" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">• git branch 전진</text>
+  <text x="124" y="709" fill="#3B5C4E" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">• best artifact 갱신</text>
+
+  <rect x="432" y="634" width="292" height="84" rx="20" fill="#FFF7F5" stroke="#C57461" stroke-width="2"/>
+  <text x="458" y="662" fill="#7C2F24" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Discard 이후</text>
+  <text x="458" y="688" fill="#734941" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">• `git reset --hard HEAD~1`</text>
+  <text x="458" y="709" fill="#734941" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">• 다음 구조 가설로 이동</text>
+
+  <rect x="840" y="140" width="680" height="500" rx="28" fill="url(#panelB)" stroke="#9FC6BE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="876" y="184" fill="#22504B" font-size="28" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">2. 내부 모델 학습 루프</text>
+  <text x="876" y="214" fill="#47726B" font-size="16" font-weight="500" font-family="Pretendard, Noto Sans KR, sans-serif">모델이 스스로 가중치를 학습하는 단계. 아키텍처 탐색과는 별도</text>
+
+  <rect x="876" y="246" width="610" height="84" rx="18" fill="#FBFFFE" stroke="#ABD0C8" stroke-width="2"/>
+  <text x="906" y="272" fill="#284154" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">입력</text>
+  <text x="906" y="297" fill="#45626A" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">분자별 멀티모달 feature 벡터</text>
+  <text x="906" y="318" fill="#45626A" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">ecfp, maccs, avalon, tt, rdkit, scage, mole ...</text>
+
+  <rect x="876" y="354" width="610" height="88" rx="18" fill="#FBFFFE" stroke="#ABD0C8" stroke-width="2"/>
+  <text x="906" y="380" fill="#284154" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Forward / Backward</text>
+  <text x="906" y="405" fill="#45626A" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">예측값 계산 → BCE loss → gradient 계산 → optimizer step</text>
+  <text x="906" y="426" fill="#45626A" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">이 과정에서 weight만 학습되고, 구조는 고정된 채 실행됨</text>
+
+  <rect x="876" y="466" width="610" height="88" rx="18" fill="#FBFFFE" stroke="#ABD0C8" stroke-width="2"/>
+  <text x="906" y="492" fill="#284154" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Validation / Early stopping</text>
+  <text x="906" y="517" fill="#45626A" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">seed별 validation loss와 ROC-AUC를 추적해 best state 선택</text>
+  <text x="906" y="538" fill="#45626A" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">10 seeds 평균으로 architecture 성능을 더 안정적으로 비교</text>
+
+  <rect x="876" y="578" width="610" height="40" rx="14" fill="#DCEFEA" stroke="#79A99F" stroke-width="2"/>
+  <text x="905" y="603" fill="#23504B" font-size="17" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">핵심: 자기학습은 "코드가 스스로 weight를 바꾸는 것"이 아니라, 실험을 통해 더 나은 구조를 선택하는 것</text>
+
+  <path d="M1181 330V354" stroke="#6C9F95" stroke-width="3" stroke-linecap="round" marker-end="url(#arrowSoft)"/>
+  <path d="M1181 442V466" stroke="#6C9F95" stroke-width="3" stroke-linecap="round" marker-end="url(#arrowSoft)"/>
+  <path d="M1181 554V578" stroke="#6C9F95" stroke-width="3" stroke-linecap="round" marker-end="url(#arrowSoft)"/>
+
+  <rect x="80" y="700" width="1440" height="400" rx="28" fill="url(#panelC)" stroke="#B7CFD2" stroke-width="2" filter="url(#shadow)"/>
+  <text x="116" y="744" fill="#23475C" font-size="28" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">3. BBB 모델 아키텍처와 최적화 포인트</text>
+  <text x="116" y="774" fill="#527182" font-size="16" font-weight="500" font-family="Pretendard, Noto Sans KR, sans-serif">입력 modality를 token처럼 다루고, backbone과 pooling을 반복 개선</text>
+
+  <rect x="120" y="822" width="202" height="112" rx="20" fill="#FFFDF8" stroke="#B5C7CF" stroke-width="2"/>
+  <text x="152" y="855" fill="#24485D" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Flat Input</text>
+  <text x="152" y="884" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">concat된 멀티모달</text>
+  <text x="152" y="906" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">분자 feature vector</text>
+
+  <rect x="376" y="804" width="248" height="148" rx="22" fill="#FBFFFE" stroke="#8DB4BF" stroke-width="2"/>
+  <text x="412" y="839" fill="#24485D" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Per-modality Projection</text>
+  <text x="412" y="868" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">각 modality별 Linear</text>
+  <text x="412" y="890" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">in_dim → d_model</text>
+  <text x="412" y="912" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">선택적 norm / scaling 추가</text>
+
+  <rect x="678" y="798" width="304" height="160" rx="22" fill="#FBFFFE" stroke="#8DB4BF" stroke-width="2"/>
+  <text x="715" y="833" fill="#24485D" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Token Stack + gMLP Backbone</text>
+  <text x="715" y="862" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">(B, seq_len, d_model)</text>
+  <text x="715" y="884" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">[LayerNorm → FFN → SGU → Linear + Residual] × depth</text>
+  <text x="715" y="906" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">모달리티 간 상호작용을 여기서 학습</text>
+  <text x="715" y="928" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">주 실험영역: gate, norm, residual, mixing</text>
+
+  <rect x="1036" y="822" width="202" height="112" rx="20" fill="#FFFDF8" stroke="#B5C7CF" stroke-width="2"/>
+  <text x="1076" y="855" fill="#24485D" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Pooling</text>
+  <text x="1076" y="884" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">gated weighted pool</text>
+  <text x="1076" y="906" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">또는 attention형 집계</text>
+
+  <rect x="1292" y="822" width="164" height="112" rx="20" fill="#FFFDF8" stroke="#B5C7CF" stroke-width="2"/>
+  <text x="1332" y="855" fill="#24485D" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Head</text>
+  <text x="1332" y="884" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">Dropout</text>
+  <text x="1332" y="906" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">Linear → logit</text>
+
+  <path d="M322 878H376" stroke="#496C7C" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M624 878H678" stroke="#496C7C" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M982 878H1036" stroke="#496C7C" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M1238 878H1292" stroke="#496C7C" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <rect x="140" y="980" width="408" height="82" rx="20" fill="#F4FBFF" stroke="#8DB4BF" stroke-width="2"/>
+  <text x="166" y="1008" fill="#23475C" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Keep되기 쉬운 변화</text>
+  <text x="166" y="1034" fill="#4C6673" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">• score 개선이 분명함  • 코드 복잡도 증가가 낮음  • 외부/holdout도 함께 안정적</text>
+
+  <rect x="594" y="980" width="412" height="82" rx="20" fill="#FFF7F5" stroke="#D29A8C" stroke-width="2"/>
+  <text x="620" y="1008" fill="#7C2F24" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">Discard되기 쉬운 변화</text>
+  <text x="620" y="1034" fill="#734941" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">• scaffold ROC-AUC 미개선  • internal만 오르고 generalization 악화  • 구현이 과도하게 복잡</text>
+
+  <rect x="1052" y="980" width="364" height="82" rx="20" fill="#F6FFF7" stroke="#90B69A" stroke-width="2"/>
+  <text x="1078" y="1008" fill="#23513E" font-size="18" font-weight="700" font-family="Pretendard, Noto Sans KR, sans-serif">최적화 결과 해석</text>
+  <text x="1078" y="1034" fill="#3B5C4E" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">좋은 구조 = 같은 조건에서 더 잘 학습되고, 더 잘 일반화되는 구조</text>
+
+  <text x="80" y="1138" fill="#5A7280" font-size="15" font-family="Pretendard, Noto Sans KR, sans-serif">Source summary: `README.md`, `bbb_program.md`, `bbb_experiment_overview.md` 기반으로 BBB autoresearch 흐름을 시각화</text>
+</svg>

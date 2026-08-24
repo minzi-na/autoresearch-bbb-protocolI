@@ -1,0 +1,25 @@
+{
+  "combo": "combo2",
+  "best_subdir": "best",
+  "roc_s": 0.8736,
+  "roc_ext": 0.7703,
+  "roc_holdout": 0.8052,
+  "internal_test": {
+    "roc_auc_mean": 0.8736
+  },
+  "external_ensemble": {
+    "roc_auc": 0.7703,
+    "roc_auc_seed_mean": 0.7608,
+    "roc_auc_ensemble_gain": 0.0095
+  },
+  "holdout_ensemble": {
+    "roc_auc": 0.8052,
+    "roc_auc_seed_mean": 0.7964,
+    "roc_auc_ensemble_gain": 0.0088
+  },
+  "roc_int_mean": 0.87356,
+  "roc_ext_mean": 0.7607984362770335,
+  "roc_ext_ensemble": 0.7702631039231197,
+  "roc_holdout_mean": 0.7964287980330729,
+  "roc_holdout_ensemble": 0.8052068049331802
+}

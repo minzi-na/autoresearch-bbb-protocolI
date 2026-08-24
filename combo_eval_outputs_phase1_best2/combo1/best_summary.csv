@@ -1,0 +1,2 @@
+combo,best_subdir,roc_s,roc_ext,roc_holdout,internal_test,external_ensemble,holdout_ensemble,roc_int_mean,roc_ext_mean,roc_ext_ensemble,roc_holdout_mean,roc_holdout_ensemble
+combo1,best,0.8756,0.7786,0.8176,{'roc_auc_mean': 0.8756},"{'roc_auc': 0.7786, 'roc_auc_seed_mean': 0.7701, 'roc_auc_ensemble_gain': 0.0085}","{'roc_auc': 0.8176, 'roc_auc_seed_mean': 0.8097, 'roc_auc_ensemble_gain': 0.0079}",0.87557,0.7701130553009344,0.7785795206424546,0.8097101161914582,0.8175794107149938

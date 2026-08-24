@@ -1,0 +1,2 @@
+roc_s,roc_ext,roc_holdout,internal_test,external_ensemble,holdout_ensemble,model_type
+0.8457,0.7748,0.8082,"{'roc_auc_mean': 0.8457, 'roc_auc_std': 0.0188}","{'accuracy': 0.7386, 'precision': 0.8146, 'recall': 0.796, 'f1': 0.8052, 'roc_auc': 0.7748, 'mcc': 0.4082, 'sensitivity': 0.796, 'specificity': 0.6171}","{'accuracy': 0.7732, 'precision': 0.8405, 'recall': 0.8305, 'f1': 0.8354, 'roc_auc': 0.8082, 'mcc': 0.4707, 'sensitivity': 0.8305, 'specificity': 0.6437}",baseline
